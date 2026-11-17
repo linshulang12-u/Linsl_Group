@@ -1,5 +1,6 @@
 ---
 # Portrait: avatar.jpg in this folder.
+slug: luyue-wang
 title: Luyue Wang
 first_name: Luyue
 last_name: Wang

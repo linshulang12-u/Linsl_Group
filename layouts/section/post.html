@@ -3,12 +3,12 @@
 {{ $groups := .RegularPages.GroupByDate "2006" }}
 <header class="lab-pagehead">
   <div class="lab-wrap">
-    <p class="lab-eyebrow">{{ .Params.eyebrow | default "News / Lab record" }}</p>
+    <p class="lab-eyebrow">{{ .Params.eyebrow | default (i18n "lab_news_eyebrow") }}</p>
     <h1>{{ .Title }}</h1>
     {{ with .Params.lead }}<p class="lab-lead">{{ . | markdownify }}</p>{{ end }}
     <div class="lab-stats">
-      <div><strong>{{ len $posts }}</strong>Published entries</div>
-      <div><strong>{{ len $groups }}</strong>Archive years</div>
+      <div><strong>{{ len $posts }}</strong>{{ i18n "lab_published_entries" }}</div>
+      <div><strong>{{ len $groups }}</strong>{{ i18n "lab_archive_years" }}</div>
     </div>
     <ul class="lab-chips">{{ range $groups }}<li><a href="#y{{ .Key }}">{{ .Key }}</a></li>{{ end }}</ul>
   </div>
@@ -17,12 +17,12 @@
 {{ with index $posts 0 }}
 <section class="lab-section lab-section--wash">
   <div class="lab-wrap">
-    <p class="lab-label">Current entry</p>
+    <p class="lab-label">{{ i18n "lab_current_entry" }}</p>
     <div class="lab-current">
-      <p class="lab-muted" style="font-size:.88rem;font-weight:600;margin-bottom:8px">{{ .Date.Format (.Params.date_format | default "2 January 2006") }}</p>
+      <p class="lab-muted" style="font-size:.88rem;font-weight:600;margin-bottom:8px">{{ .Date.Format (.Params.date_format | default site.Params.lab_date_format_long) }}</p>
       <h2><a href="{{ .RelPermalink }}">{{ .Title | markdownify }}</a></h2>
       <p>{{ .Params.summary | default .Summary | plainify | truncate 260 }}</p>
-      <p style="margin-top:14px"><a class="lab-more" href="{{ .RelPermalink }}">Read latest record →</a></p>
+      <p style="margin-top:14px"><a class="lab-more" href="{{ .RelPermalink }}">{{ i18n "lab_read_latest" }}</a></p>
     </div>
   </div>
 </section>
@@ -30,9 +30,9 @@
 
 <section class="lab-section">
   <div class="lab-wrap">
-    <p class="lab-label">Archive</p>
+    <p class="lab-label">{{ i18n "lab_archive" }}</p>
     {{ range $i, $g := $groups }}
-    <div class="lab-year" id="y{{ $g.Key }}"{{ if not $i }} style="margin-top:8px"{{ end }}><h2>{{ $g.Key }}</h2><span>{{ len $g.Pages }} {{ if eq (len $g.Pages) 1 }}entry{{ else }}entries{{ end }}</span></div>
+    <div class="lab-year" id="y{{ $g.Key }}"{{ if not $i }} style="margin-top:8px"{{ end }}><h2>{{ $g.Key }}</h2><span>{{ len $g.Pages }} {{ if eq (len $g.Pages) 1 }}{{ i18n "lab_entry" }}{{ else }}{{ i18n "lab_entries" }}{{ end }}</span></div>
     {{ range $g.Pages }}{{ partial "lab/news_item.html" . }}{{ end }}
     {{ end }}
   </div>

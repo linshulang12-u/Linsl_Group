@@ -1,5 +1,30 @@
-# Languages. The site is English-only for now.
-# A Chinese version can be added later by enabling a `zh` block here
-# and mirroring the content into content/zh/.
+# Languages: English at /, Chinese at /zh/.
+# A page is translated by adding a file with the `.zh.md` suffix next to the English one
+# (e.g. content/culture/index.zh.md). The 中文 / English button in the navbar switches between them.
 en:
   languageCode: en-us
+  languageName: English
+  weight: 1
+  params:
+    lab_date_format: '2 Jan 2006'
+    lab_date_format_long: '2 January 2006'
+
+zh:
+  languageCode: zh-Hans
+  languageName: 中文
+  title: 时空光场调控课题组
+  weight: 2
+  params:
+    lab_date_format: '2006年1月2日'
+    lab_date_format_long: '2006年1月2日'
+    description: '吉林大学时空光场调控课题组：超快光场调控、非线性光学成像与飞秒激光微纳加工。'
+  menus:
+    main:
+      - {name: 研究方向, url: research/, weight: 10}
+      - {name: 团队成员, url: people/, weight: 20}
+      - {name: 新闻动态, url: post/, weight: 30}
+      - {name: 相册, url: gallery/, weight: 40}
+      - {name: 发表论文, url: publication/, weight: 50}
+      - {name: 资源, url: resources/, weight: 60}
+      - {name: 实验室文化, url: culture/, weight: 70}
+      - {name: 加入我们, url: contact/, weight: 80}

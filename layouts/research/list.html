@@ -4,7 +4,7 @@
 {{ with .Content }}
 <section class="lab-section">
   <div class="lab-wrap">
-    <p class="lab-label">Current focus</p>
+    <p class="lab-label">{{ i18n "lab_current_focus" }}</p>
     <div class="lab-lead">{{ . }}</div>
   </div>
 </section>
@@ -12,8 +12,8 @@
 
 <section class="lab-section" id="directions">
   <div class="lab-wrap">
-    <p class="lab-label">Directions</p>
-    <h2 class="lab-h2" style="margin-bottom:34px">{{ .Params.directions_title | default "Connected research directions" }}</h2>
+    <p class="lab-label">{{ i18n "lab_directions" }}</p>
+    <h2 class="lab-h2" style="margin-bottom:34px">{{ .Params.directions_title | default (i18n "lab_directions_title") }}</h2>
     {{ range $i, $d := .RegularPages.ByWeight }}
     {{ $img := ($d.Resources.ByType "image").GetMatch "*featured*" }}
     <article class="lab-panel" id="{{ $d.File.ContentBaseName }}">
@@ -24,8 +24,8 @@
           {{ with $d.Params.question }}<p class="lab-q">{{ . }}</p>{{ end }}
           {{ with $d.Params.focus }}<ul>{{ range . }}<li>{{ . | markdownify }}</li>{{ end }}</ul>{{ end }}
           <div style="display:flex;flex-wrap:wrap;gap:6px 22px">
-            <a class="lab-more" href="{{ $d.RelPermalink }}">Explore this direction →</a>
-            {{ range $d.Params.demos }}<a class="lab-more" href="{{ .url | relURL }}" target="_blank" rel="noopener">Interactive demo: {{ .name }} ↗</a>{{ end }}
+            <a class="lab-more" href="{{ $d.RelPermalink }}">{{ i18n "lab_explore_direction" }}</a>
+            {{ range $d.Params.demos }}<a class="lab-more" href="{{ .url | relURL }}" target="_blank" rel="noopener">{{ i18n "lab_interactive_demo" }}: {{ .name }} ↗</a>{{ end }}
           </div>
         </div>
         {{ with $img }}{{ $s := .Resize "720x" }}<a href="{{ $d.RelPermalink }}"><img src="{{ $s.RelPermalink }}" alt="{{ $d.Params.image_caption }}" loading="lazy"></a>{{ end }}
@@ -38,8 +38,8 @@
 {{ with .Params.principles }}
 <section class="lab-section lab-section--wash" id="principles">
   <div class="lab-wrap">
-    <p class="lab-label">Shared principles</p>
-    <h2 class="lab-h2" style="margin-bottom:28px">{{ $.Params.principles_title | default "How we approach a problem" }}</h2>
+    <p class="lab-label">{{ i18n "lab_shared_principles" }}</p>
+    <h2 class="lab-h2" style="margin-bottom:28px">{{ $.Params.principles_title | default (i18n "lab_principles_title") }}</h2>
     <div class="lab-grid lab-grid--3">
       {{ range $i, $p := . }}
       <div class="lab-card"><div class="lab-card-n">{{ printf "%02d" (add $i 1) }}</div><h3 class="lab-h3">{{ $p.title }}</h3><p>{{ $p.text }}</p></div>

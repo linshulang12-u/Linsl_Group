@@ -1,0 +1,19 @@
+# Collaborators shown as a logo strip on the home page (English and Chinese).
+# Logo files: assets/media/partners/<logo>. Leave url empty for no link.
+partners:
+  - name: National University of Singapore
+    name_zh: 新加坡国立大学
+    logo: nus.png
+    url: https://www.nus.edu.sg
+  - name: Tsinghua University
+    name_zh: 清华大学
+    logo: tsinghua.png
+    url: https://www.tsinghua.edu.cn
+  - name: South China University of Technology
+    name_zh: 华南理工大学
+    logo: scut.png
+    url: https://www.scut.edu.cn
+  - name: SeekOptix
+    name_zh: 析光科技
+    logo: seekoptix.png
+    url: ''

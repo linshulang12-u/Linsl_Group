@@ -2,7 +2,7 @@
 #  Hugo configuration. You rarely need to touch this file.
 #  Lab name, institution, e-mail, address → edit data/lab.yaml
 # ─────────────────────────────────────────────────────────────
-title: Lin Lab            # shown in the navbar and browser tab
+title: Lin Lab            # English navbar/browser-tab name (Chinese name: languages.yaml)
 baseURL: 'https://lingroup.netlify.app/'
 
 defaultContentLanguage: en

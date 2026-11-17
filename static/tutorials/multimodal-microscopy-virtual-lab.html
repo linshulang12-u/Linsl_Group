@@ -1,0 +1,1158 @@
+<title>多模态显微镜虚拟实验室</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+/* Layout: instrument bench — left = optical table + physics + spectra/noise, centre = live scan + reconstructed image + task cards, right = control rack. Single dark look by choice, matching the video series. */
+:root{
+  color-scheme: dark;
+  --bg:#0c111c; --panel:#131a29; --panel2:#182136; --line:#26314a;
+  --fg:#e5e9f3; --muted:#8c96b0; --faint:#5a6584;
+  --gold:#f2cc6b;          /* interactive highlight */
+  --exc1:#3ed3ea;          /* 488 nm CW excitation */
+  --exc2:#e2506a;          /* tunable fs output / SRS pump (deep red) */
+  --sto:#f08a4b;           /* 1040 nm Stokes */
+  --fl:#5ddc91;            /* fluorescence */
+  --shg:#b48cff;           /* second harmonic */
+  --srs:#ffb454;           /* SRS / lipid contrast */
+  --warn:#f0a94e; --bad:#ef6a6a; --ok:#6fd49a;
+  --f-ui:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --f-data:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:14px;line-height:1.5}
+.wrap{padding-inline:16px;padding-block:14px 40px;max-width:1560px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-bottom:12px}
+h1{font-size:20px;font-weight:700;margin:0;letter-spacing:.02em;text-wrap:balance}
+h1 small{font-family:var(--f-data);font-weight:400;color:var(--muted);font-size:12px;margin-left:8px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tab{font:inherit;font-size:13px;background:var(--panel);color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer}
+.tab[aria-pressed="true"]{color:var(--bg);background:var(--gold);border-color:var(--gold);font-weight:500}
+.tab[disabled]{cursor:not-allowed;opacity:.45}
+.tab .lock{font-family:var(--f-data);font-size:11px;margin-left:4px}
+.modes{margin-left:auto;display:flex;gap:6px;align-items:center;color:var(--muted);font-size:13px}
+.grid{display:grid;gap:12px;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) 330px}
+@media (max-width:1180px){.grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .rack{grid-column:1 / -1}}
+@media (max-width:760px){.grid{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}
+.ph{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.ph h2{font-size:13px;font-weight:500;margin:0;letter-spacing:.04em;color:var(--fg)}
+.ph .tag{font-family:var(--f-data);font-size:11px;color:var(--muted)}
+.sim{font-family:var(--f-data);font-size:10.5px;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 50%,transparent);border-radius:4px;padding:0 5px;letter-spacing:.04em}
+canvas{display:block;width:100%;max-width:100%}
+#optics{aspect-ratio:1000/440}
+#info{min-height:58px;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px;margin-top:6px}
+#info b{color:var(--fg);font-weight:500}
+#info .rm{color:var(--bad)}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pair figure{margin:0;min-width:0}
+.pair figcaption{font-size:12px;color:var(--muted);margin-top:4px;display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap}
+#scanview,#image{aspect-ratio:1/1;border-radius:4px;background:#000;image-rendering:pixelated}
+#side{aspect-ratio:1000/400}
+#spec{aspect-ratio:1000/300}
+#noise{aspect-ratio:1000/340}
+.views{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.views button{font:inherit;font-size:12px;background:var(--panel2);color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:3px 8px;cursor:pointer}
+.views button[aria-pressed="true"]{color:var(--bg);background:var(--gold);border-color:var(--gold)}
+.readouts{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px 10px;margin-top:8px}
+.ro{background:var(--panel2);border-radius:6px;padding:5px 8px;min-width:0}
+.ro .k{font-size:11px;color:var(--muted);display:block}
+.ro .v{font-family:var(--f-data);font-size:13.5px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.ro.warn .v{color:var(--warn)} .ro.bad .v{color:var(--bad)} .ro.good .v{color:var(--ok)}
+.rack .grp{border-top:1px solid var(--line);padding-top:8px;margin-top:8px}
+.rack .grp:first-of-type{border-top:0;margin-top:0;padding-top:0}
+.grp h3{font-size:12px;font-weight:500;color:var(--gold);margin:0 0 4px;letter-spacing:.06em}
+.ctl{display:grid;grid-template-columns:1fr auto;gap:0 8px;align-items:center;padding:3px 0}
+.ctl label{font-size:13px}
+.ctl .note{grid-column:1 / -1;font-size:11.5px;color:var(--faint)}
+.ctl output{font-family:var(--f-data);font-size:12.5px;color:var(--fg);font-variant-numeric:tabular-nums}
+.ctl input[type=range]{grid-column:1 / -1;width:100%;accent-color:var(--gold);margin:2px 0 0}
+.ctl select{grid-column:2;font:inherit;font-size:12.5px;background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:5px;padding:2px 4px;max-width:190px}
+.seg{display:flex;gap:4px;grid-column:1 / -1;margin-top:3px}
+.seg button{flex:1;font:inherit;font-size:12.5px;background:var(--panel2);color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:4px 6px;cursor:pointer}
+.seg button[aria-pressed="true"]{color:var(--bg);background:var(--gold);border-color:var(--gold)}
+.btn{font:inherit;font-size:13px;background:transparent;color:var(--gold);border:1px solid var(--gold);border-radius:6px;padding:5px 10px;cursor:pointer}
+.btn:hover{background:color-mix(in srgb,var(--gold) 14%,transparent)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.check{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);margin-top:4px}
+.tasks ol{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:6px;counter-reset:t}
+.tasks li{counter-increment:t;display:grid;grid-template-columns:24px 1fr;gap:6px;font-size:13px;align-items:start}
+.tasks li::before{content:counter(t);font-family:var(--f-data);font-size:11px;width:20px;height:20px;border-radius:50%;border:1px solid var(--faint);color:var(--muted);display:grid;place-items:center}
+.tasks li.done::before{content:"✓";border-color:var(--ok);color:var(--bg);background:var(--ok)}
+.tasks li.done{color:var(--muted)}
+.tasks li .why{display:block;color:var(--muted);font-size:12px}
+.tasks .foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-top:10px;font-size:12px;color:var(--muted)}
+#sweep{aspect-ratio:300/170;margin-top:6px;border-radius:4px;background:var(--panel2)}
+details{font-size:13px;color:var(--muted)}
+details summary{cursor:pointer;color:var(--fg)}
+details code,.mono{font-family:var(--f-data);font-size:12px;color:var(--fg)}
+details ul{padding-left:18px;margin:6px 0}
+details li{margin:3px 0}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11.5px;color:var(--muted);margin-top:4px}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+</style>
+
+<div class="wrap">
+<header>
+  <h1>多模态显微镜虚拟实验室<small>Multimodal Microscopy Virtual Lab · v3</small></h1>
+  <div class="tabs" id="tabs" role="group" aria-label="章节"></div>
+  <div class="modes">
+    <span>模式</span>
+    <div class="seg" style="margin:0">
+      <button id="mGuided" type="button" aria-pressed="true">引导教学</button>
+      <button id="mFree" type="button" aria-pressed="false">自由探索</button>
+    </div>
+  </div>
+</header>
+
+<div class="grid">
+  <div class="col">
+    <section class="panel">
+      <div class="ph"><h2>光路 · 同一台显微镜</h2><span class="tag">点击组件可拔掉或装上</span></div>
+      <canvas id="optics" width="1000" height="440" aria-label="显微镜光路图"></canvas>
+      <div id="info">把鼠标移到组件上，看它解决什么问题、拿掉会怎样。</div>
+    </section>
+    <section class="panel" id="noisePanel" hidden>
+      <div class="ph"><h2>为什么必须调制：探测器上的噪声谱</h2><span class="sim">SIMULATED</span></div>
+      <canvas id="noise" width="1000" height="340" aria-label="相对强度噪声谱"></canvas>
+      <div class="legend" id="noiseLegend"></div>
+    </section>
+    <section class="panel">
+      <div class="ph"><h2>焦点附近的激发分布 · 每一层的总信号</h2><span class="sim">SIMULATED</span></div>
+      <canvas id="side" width="1000" height="400" aria-label="激发分布侧视图"></canvas>
+      <div class="legend" id="sideLegend"></div>
+    </section>
+    <section class="panel" id="specPanel" hidden>
+      <div class="ph"><h2 id="specTitle">发射光谱与探测通道</h2><span class="sim">SIMULATED</span></div>
+      <canvas id="spec" width="1000" height="300" aria-label="光谱"></canvas>
+      <div class="legend" id="specLegend"></div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="panel">
+      <div class="ph"><h2>扫描实况 → 逐像素重建</h2><span class="sim">SIMULATED</span></div>
+      <div class="pair">
+        <figure><canvas id="scanview" width="384" height="384"></canvas>
+          <figcaption><span>样品俯视（真值）</span><span id="fovLbl" class="mono"></span></figcaption></figure>
+        <figure><canvas id="image" width="256" height="256"></canvas>
+          <figcaption><span id="imgLbl">探测器重建图像</span><span id="frameLbl" class="mono"></span></figcaption></figure>
+      </div>
+      <div class="views" id="views" role="group" aria-label="显示通道" hidden></div>
+      <div class="readouts" id="readouts"></div>
+    </section>
+    <section class="panel tasks">
+      <div class="ph"><h2 id="taskTitle">任务卡</h2><span class="tag" id="taskProg"></span></div>
+      <ol id="tasks"></ol>
+      <div class="foot"><span id="taskHint"></span><button class="btn" id="unlockBtn" type="button" hidden>解锁</button></div>
+    </section>
+  </div>
+
+  <aside class="col rack">
+    <section class="panel" id="rack"></section>
+    <section class="panel" id="sweepPanel" hidden>
+      <div class="ph"><h2>验收测试：功率依赖</h2><span class="sim">SIMULATED</span></div>
+      <p style="margin:0;font-size:12.5px;color:var(--muted)" id="sweepDesc"></p>
+      <div style="margin-top:6px"><button class="btn" id="sweepBtn" type="button">运行功率扫描</button></div>
+      <canvas id="sweep" width="600" height="340"></canvas>
+    </section>
+    <section class="panel">
+      <details>
+        <summary>数值模型说明（每个滑块都驱动这些模型）</summary>
+        <ul>
+          <li>焦点：高斯光束近似，<code>w₀ = 0.433·λ/NA_eff</code>，<code>z_R = π·w₀²·n/λ</code>，n = 1.33。高 NA 矢量衍射未计入。</li>
+          <li>后瞳填充：<code>β = D_beam/D_BFP</code>，<code>NA_eff = NA·min(1, β)</code>，透过率 <code>T = 1 − exp(−2/β²)</code>。</li>
+          <li>样品：9 层薄层（z = −40…40 µm）。成分：荧光染料；胶原（每像素带纤维方向 φ）；第 5 章的免标记细胞（脂滴、蛋白、吸收颗粒、折射率边界）。每层贡献 = 成分密度 ⊗ 离焦光斑 × 权重。单光子权重 1；双光子、SHG、SRS 用 w/√2 光斑、权重 (w₀/w)²。SHG 按非相干叠加（简化）。</li>
+          <li>脉冲：<code>g = 0.664/(f·τ)</code>；拔掉预补偿后 <code>τ' = τ·√(1+(4ln2·GDD/τ²)²)</code>，GDD = 6000 fs²。</li>
+          <li>染料 σ₂(λ)：中心 920 nm、FWHM 120 nm 的高斯形示例谱；饱和 <code>s = 1/(1+X/X_sat)</code>（示例参数）。</li>
+          <li>SHG 偏振：<code>I ∝ (cos²Δ + ρ sin²Δ)² + ρ² sin²2Δ</code>；光谱：SHG 为 λ/2 窄线；每个通道 = ∫ 发射谱 × 透过率。</li>
+          <li>SRS：拉曼位移 <code>Ω = 10⁷/λ_p − 10⁷/1040</code> cm⁻¹。<code>ΔI_p/I_p = G·P_S·(w_ref/w₀)²·Σ K_s E_s·η_overlap</code>，K_s = 拉曼谱（示例洛伦兹线）对激发带宽的平均。变换极限脉冲：激发带宽 Γ = √2·14.7/τ[ps] cm⁻¹，与延时无关；光谱聚焦（玻璃棒啁啾）：Γ = 25 cm⁻¹，中心随延时移动 60 cm⁻¹/ps，重叠宽度 2.8 ps（示例参数）。</li>
+          <li>噪声：相对噪声谱密度 <code>n(f)² = RIN(f) + 2e/I_DC + (i_amp/I_DC)²</code>，RIN(f) = a·(1 kHz/f) + b（两种激光的示例曲线），I_DC = 0.25 A/W × P_p。每像素噪声 = n(f_mod)·√(1/2τ_dwell)，再经锁相时间常数 τ_LI 低通；每像素调制周期 f·τ_dwell &lt; 1 时噪声按 1/(f·τ_dwell) 放大。直流探测：在 1/T_frame 到 1/(2τ_dwell) 之间积分噪声谱，并叠加样品折射率边界造成的透射变化（~3×10⁻³，示例）。</li>
+          <li>I/Q：锁相输出 Z = m·S·e^{iφ_e} + m·A_PT·e^{i(φ_e − φ_PT)}，φ_e = 360°·f·25 ns（电子学延迟），光热背景低通 A_PT ∝ 1/√(1+(2πfτ_th)²)、相位滞后 φ_PT = atan(2πfτ_th)，τ_th = 0.1 µs（示例）。X = Re(Z e^{−iφ_ref})，Y = Im(Z e^{−iφ_ref})。</li>
+          <li>采集：泊松噪声 + 暗计数（PMT 通道）或高斯噪声（光电二极管 + 锁相）；一阶低通；振镜相位滞后与行校正。</li>
+        </ul>
+      </details>
+    </section>
+  </aside>
+</div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================ 0. helpers */
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+function fmt(v,d=2){ if(!isFinite(v)) return "—"; const a=Math.abs(v); if(a!==0&&(a<1e-2||a>=1e5)) return v.toExponential(1); return v.toFixed(d); }
+function poisson(mu, rnd){
+  if(mu<=0) return 0;
+  if(mu<30){ const L=Math.exp(-mu); let k=0,p=1; do{k++;p*=rnd();}while(p>L); return k-1; }
+  const u=1-rnd(), v=rnd(); return Math.max(0, Math.round(mu + Math.sqrt(mu)*Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)));
+}
+function gaussRnd(rnd){ const u=1-rnd(), v=rnd(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+const INF=[[0,0,4],[40,11,84],[101,21,110],[159,42,99],[212,72,66],[245,125,21],[250,193,39],[252,255,164]];
+function inferno(t){ t=clamp(t,0,1)*(INF.length-1); const i=Math.min(INF.length-2,Math.floor(t)), f=t-i, a=INF[i], b=INF[i+1];
+  return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f]; }
+const css = () => getComputedStyle(document.documentElement);
+const tok = n => css().getPropertyValue(n).trim();
+const gauss = (x,m,fw) => Math.exp(-4*Math.LN2*((x-m)/fw)**2);
+const lor = (x,m,fw) => 1/(1+(2*(x-m)/fw)**2);
+const db = v => 10*Math.log10(Math.max(v,1e-30));
+
+/* ============================================================ 1. state */
+const DEFAULTS = {P1:0.05,P2:20,pulsed:true,tau:150,rep:80,lam:920,NA:0.8,M:8,N:256,FOV:120,dwell:2,bidir:false,B:5,lag:1.5,corr:0,
+  zf:0,ls:200,bright:1,theta:0,shgC:460,FB:10,rho:0.6,
+  Ps:20, delay:1.8, fmod:1e6, tauLI:1, phRef:0, mdep:0.9, laserType:"solid"};
+const S = Object.assign({ chapter:2, unlocked:2, guided:true, view:"fl", mode:"1P", speed:0.1, autoContrast:true, preset:"thick", ch5init:false,
+  removed:{expander:false,galvo:false,relay:false,dichroic:false,filter:false,compressor:false,hwp:false,split:false,condenser:false,
+           eom:false,delayline:false,rod:false,sfilter:false,lockin:false}}, DEFAULTS);
+const CONST = { A1:500, A2:1.2e-6, ASH:2.5e-6, dark:0.002, GDD:6000, Dbeam0:2.0, fObj:9, n:1.33, Xsat2:1.1e9, Xsat1:10,
+  Gsrs:1e-5, Tedge:3e-3, Gpt:5e-6, tauTh:0.1, tElec:0.025, kappa:60, gamChirp:25, tChirp:2.0, Resp:0.25, iAmp:3e-12, lamS:1040 };
+const LASERS = { solid:{label:"固体飞秒激光（低 RIN，示例）", a:1e-11, b:1e-16}, fiber:{label:"光纤激光（高 RIN，示例）", a:3e-10, b:3e-14} };
+const PRESETS = {
+  thick:{label:"厚组织：细胞 + 胶原", zSurf:-50, bottom:50},
+  tendon:{label:"鼠尾肌腱切片（平行胶原束）", zSurf:-15, bottom:15},
+  cells:{label:"免标记活细胞：脂滴 + 蛋白", zSurf:-12, bottom:12},
+  beads:{label:"单层亚分辨微珠（PSF）", zSurf:-0.5, bottom:0.5},
+  bars:{label:"分辨率条纹靶（单层）", zSurf:-0.5, bottom:0.5},
+};
+const FL_BAND=[500,550];
+
+/* ============================================================ 2. virtual sample (layers allocated on demand) */
+const G=768, L=150, DX=L/G;
+const ZL=[-40,-30,-20,-10,0,10,20,30,40];
+const KINDS=["F","C","P","Li","Pr","Ab","Ed"];   // dye, collagen, collagen angle, lipid, protein, absorber, index edge
+let LAY={}, MEAN={}, HAS={};
+function newLayers(){ for(const k of KINDS) LAY[k]=ZL.map(()=>null); }
+const A=(k,li)=> LAY[k][li] || (LAY[k][li]=new Float32Array(G*G));
+function capsule(map, x0,y0,x1,y1, r, val, pmap){
+  const px0=(x0+L/2)/DX, py0=(y0+L/2)/DX, px1=(x1+L/2)/DX, py1=(y1+L/2)/DX, rp=r/DX;
+  const xa=Math.max(0,Math.floor(Math.min(px0,px1)-rp-1)), xb=Math.min(G-1,Math.ceil(Math.max(px0,px1)+rp+1));
+  const ya=Math.max(0,Math.floor(Math.min(py0,py1)-rp-1)), yb=Math.min(G-1,Math.ceil(Math.max(py0,py1)+rp+1));
+  const dx=px1-px0, dy=py1-py0, l2=dx*dx+dy*dy||1e-9, phi=Math.atan2(dy,dx);
+  for(let y=ya;y<=yb;y++) for(let x=xa;x<=xb;x++){
+    let t=((x+.5-px0)*dx+(y+.5-py0)*dy)/l2; t=clamp(t,0,1);
+    const ex=x+.5-(px0+t*dx), ey=y+.5-(py0+t*dy), d=Math.sqrt(ex*ex+ey*ey);
+    const c=clamp(rp+.5-d,0,1); if(c>0){ const i=y*G+x; if(map[i]<val*c){ map[i]=val*c; if(pmap) pmap[i]=phi; } }
+  }
+}
+function disc(map,x,y,r,val){
+  if(r/DX<0.7){ const i=Math.floor((y+L/2)/DX)*G+Math.floor((x+L/2)/DX); if(i>=0&&i<G*G) map[i]+=val*Math.PI*(r/DX)**2; return; }
+  capsule(map,x,y,x,y,r,val);
+}
+function ellipse(map,cx,cy,rx,ry,ang,val){
+  const R=Math.max(rx,ry)+1, x0=Math.max(0,Math.floor((cx-R+L/2)/DX)), x1=Math.min(G-1,Math.ceil((cx+R+L/2)/DX)), y0=Math.max(0,Math.floor((cy-R+L/2)/DX)), y1=Math.min(G-1,Math.ceil((cy+R+L/2)/DX));
+  const ca=Math.cos(ang), sa=Math.sin(ang);
+  for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){ const px=(x+.5)*DX-L/2-cx, py=(y+.5)*DX-L/2-cy, u=px*ca+py*sa, v=-px*sa+py*ca;
+    const d=Math.sqrt((u/rx)**2+(v/ry)**2), c=clamp((1-d)*Math.min(rx,ry)/DX+0.5,0,1); const i=y*G+x; if(c>0 && map[i]<val*c) map[i]=val*c; }
+}
+function fiber(map,rnd,r,val,pmap,opt={}){
+  let x=opt.x??(rnd()-.5)*140, y=opt.y??(rnd()-.5)*140, a=opt.a??rnd()*Math.PI*2;
+  const len=opt.len??(40+rnd()*70), steps=24, ds=len/steps, wig=opt.wig??0.5;
+  for(let s=0;s<steps;s++){ a+=(rnd()-.5)*wig; if(opt.a!==undefined) a=opt.a+(a-opt.a)*0.6; const nx=x+Math.cos(a)*ds, ny=y+Math.sin(a)*ds; capsule(map,x,y,nx,ny,r,val,pmap); x=nx;y=ny; }
+}
+function addCell(li,rnd,cx,cy,withAbs){
+  const rx=9+rnd()*5, ry=7+rnd()*4, ang=rnd()*Math.PI, pr=A("Pr",li), lp=A("Li",li);
+  ellipse(pr,cx,cy,rx,ry,ang,0.35);
+  const nx=cx+(rnd()-.5)*3, ny=cy+(rnd()-.5)*3, nr=3.5+rnd()*1.5; ellipse(pr,nx,ny,nr,nr*0.85,ang,0.6);
+  const nd=8+Math.floor(rnd()*7);
+  for(let k=0;k<nd;k++){ let x,y,tries=0; do{ const t=rnd()*2*Math.PI, rr=Math.sqrt(rnd())*0.85; x=cx+rr*rx*Math.cos(t)*Math.cos(ang)-rr*ry*Math.sin(t)*Math.sin(ang); y=cy+rr*rx*Math.cos(t)*Math.sin(ang)+rr*ry*Math.sin(t)*Math.cos(ang); tries++; }
+    while(Math.hypot(x-nx,y-ny)<nr+1 && tries<20); capsule(lp,x,y,x,y,0.35+rnd()*0.75,1); }
+  if(withAbs){ const ab=A("Ab",li); capsule(ab,cx+(rnd()-.5)*rx,cy+(rnd()-.5)*ry,cx+(rnd()-.5)*rx,cy+(rnd()-.5)*ry,0.5,1); }
+}
+function buildSample(preset){
+  newLayers(); const rnd=mulberry32(7);
+  if(preset==="thick"){
+    ZL.forEach((z,li)=>{
+      const f=A("F",li);
+      for(let k=0;k<16;k++) disc(f,(rnd()-.5)*140,(rnd()-.5)*140,0.6+rnd()*1.0,0.6+rnd()*0.4);
+      for(let k=0;k<3;k++) fiber(f,rnd,0.35+rnd()*0.35,0.55+rnd()*0.35);
+      if(li%2===0) disc(f,(rnd()-.5)*110,(rnd()-.5)*110,4+rnd()*2.5,0.7);
+      const nb = z>=0? 5 : 2;
+      for(let k=0;k<nb;k++) fiber(A("C",li),rnd,0.45+rnd()*0.4,0.7+rnd()*0.3,A("P",li),{wig:0.25,len:60+rnd()*80});
+    });
+  } else if(preset==="tendon"){
+    ZL.forEach((z,li)=>{ if(Math.abs(z)>10) return; const base=Math.PI/6;
+      for(let k=0;k<26;k++){ const off=(rnd()-.5)*150; fiber(A("C",li),rnd,0.5+rnd()*0.5,0.7+rnd()*0.3,A("P",li),
+        {x:-75*Math.cos(base)-off*Math.sin(base), y:-75*Math.sin(base)+off*Math.cos(base), a:base, len:170, wig:0.18}); }
+      for(let k=0;k<5;k++) disc(A("F",li),(rnd()-.5)*130,(rnd()-.5)*130,1.6+rnd()*0.8,0.35);
+    });
+  } else if(preset==="cells"){
+    const spots=[[-38,-32],[8,-44],[46,-12],[-46,18],[-6,8],[32,36],[-18,46]];
+    spots.forEach(([x,y],k)=>addCell(4,rnd,x+(rnd()-.5)*6,y+(rnd()-.5)*6,k%2===0));
+    addCell(3,rnd,24,-24,false); addCell(3,rnd,-30,30,false); addCell(5,rnd,-10,-40,false); addCell(5,rnd,40,10,false);
+    for(const li of [3,4,5]){ const pr=LAY.Pr[li], lp=LAY.Li[li]; if(!pr) continue; for(let i=0;i<pr.length;i++) pr[i]*=(1-0.8*lp[i]);
+      const ed=A("Ed",li); for(let y=1;y<G-1;y++) for(let x=1;x<G-1;x++){ const i=y*G+x; const gx=pr[i+1]-pr[i-1], gy=pr[i+G]-pr[i-G]; ed[i]=Math.min(1,Math.hypot(gx,gy)*2.2); } }
+  } else if(preset==="beads"){
+    for(let k=0;k<160;k++) disc(A("F",4),(rnd()-.5)*140,(rnd()-.5)*140,0.1,30);
+  } else {
+    const m=A("F",4), widths=[3,2,1.4,1,0.7,0.5,0.35];
+    widths.forEach((w,gi)=>{ const ang=gi*0.9, rad=12+gi*8, cx=Math.cos(ang)*rad*1.4, cy=Math.sin(ang)*rad*1.4, len=Math.max(4,5*w);
+      for(let b=0;b<3;b++){ const off=(b-1)*2*w; capsule(m,cx-len/2-w+off,cy-len/2,cx-len/2-w+off,cy+len/2,w/2,1); capsule(m,cx+w,cy+off,cx+w+len,cy+off,w/2,1); } });
+  }
+  for(const k of KINDS){ MEAN[k]=LAY[k].map(a=>{ if(!a) return 0; let s=0; for(let i=0;i<a.length;i++) s+=a[i]; return s/a.length; }); HAS[k]=MEAN[k].map(v=>v>0); }
+  HAS.P=HAS.C;
+}
+
+/* ============================================================ 3. spectra */
+const SPEC_L0=380, SPEC_L1=720, NS=SPEC_L1-SPEC_L0+1;
+const dyeEm=new Float32Array(NS), afEm=new Float32Array(NS);
+(function(){ let a=0,b=0; for(let i=0;i<NS;i++){ const l=SPEC_L0+i; dyeEm[i]=0.8*gauss(l,512,35)+0.25*gauss(l,545,55); afEm[i]=gauss(l,470,90); a+=dyeEm[i]; b+=afEm[i]; }
+  for(let i=0;i<NS;i++){ dyeEm[i]/=a; afEm[i]/=b; } })();
+function band(l,lo,hi){ const e=1.5; return 1e-6+0.9/((1+Math.exp(-(l-lo)/e))*(1+Math.exp((l-hi)/e))); }
+function shgLine(lamNm,tauFs){ const dl=0.441*(lamNm*1e-9)**2/(3e8*tauFs*1e-15)*1e9, fw=Math.max(0.6,0.3536*dl);
+  const arr=new Float32Array(NS); let s=0; for(let i=0;i<NS;i++){ arr[i]=gauss(SPEC_L0+i,lamNm/2,fw); s+=arr[i]; } if(s>0) for(let i=0;i<NS;i++) arr[i]/=s; return {arr,fw}; }
+function chanBand(ch){ return ch==="fl"? FL_BAND : [S.shgC-10,S.shgC+10]; }
+function eta(em, ch){ const [lo,hi]=chanBand(ch); let s=0; for(let i=0;i<NS;i++) s+=em[i]*band(SPEC_L0+i,lo,hi); return s; }
+function polFactor(delta, rho){ const c=Math.cos(delta), s=Math.sin(delta); return (c*c+rho*s*s)**2 + rho*rho*Math.sin(2*delta)**2; }
+function polMax(rho){ let m=0; for(let k=0;k<=180;k++){ m=Math.max(m,polFactor(k*Math.PI/180,rho)); } return m; }
+// Raman spectra in the C–H stretch region (example Lorentzian bands)
+const ramLipid = w => lor(w,2850,30)+0.6*lor(w,2885,30)+0.25*lor(w,2935,40);
+const ramProt  = w => lor(w,2935,55)+0.25*lor(w,2880,40);
+const RAM_W0=2750, RAM_W1=3050;
+function ramanK(fn, wc, gam){ let s=0, n=0; for(let w=wc-2*gam; w<=wc+2*gam; w+=1){ const e=gauss(w,wc,gam); s+=fn(w)*e; n+=e; } return s/n; }
+const RIN = (f,lt) => LASERS[lt].a*(1e3/f) + LASERS[lt].b;
+
+/* ============================================================ 4. derived quantities — single source of truth */
+function chans(){ return S.chapter>=5 ? ["fl","shg","srsX","srsY"] : S.chapter>=4 ? ["fl","shg","fwd"] : ["fl"]; }
+const isSRS = ch => ch==="srsX"||ch==="srsY";
+function derive(){
+  const two = S.chapter>=3 && S.mode==="2P";
+  const lam = two? S.lam/1000 : 0.488;
+  const M = S.removed.expander?1:S.M;
+  const Dbeam = CONST.Dbeam0*M, Dbfp = 2*CONST.fObj*S.NA, beta = Dbeam/Dbfp;
+  const NAeff = S.NA*Math.min(1,beta), T = 1-Math.exp(-2/(beta*beta));
+  const w0 = 0.433*lam/NAeff, zR = Math.PI*w0*w0*CONST.n/lam;
+  const fwhmLat = two? 1.177*w0/Math.SQRT2 : 1.177*w0;
+  const usesComp = S.chapter>=3 && S.chapter<5;
+  const tauOut = (usesComp && S.removed.compressor) ? S.tau*Math.sqrt(1+(4*Math.LN2*CONST.GDD/(S.tau*S.tau))**2) : S.tau;
+  const g = (two && S.pulsed) ? 0.664/(S.rep*1e6*tauOut*1e-15) : 1;
+  const P = (two?S.P2:S.P1)*T;
+  const lsExc = two? S.ls : 0.4*S.ls;
+  const pixel = S.FOV/S.N, turn = S.bidir? 40 : 200, lineT = S.N*S.dwell + turn, frameT = S.N*lineT, tauDet = 1/(2*Math.PI*S.B);
+  const wref = 0.433*0.92/0.8, w1ref = 0.433*0.488/0.8;
+  const sig2 = two? gauss(S.lam,920,120) : 1;
+  const sigAF = two? 0.04*gauss(S.lam,760,220) : 0.03;
+  const X = two? P*P*g*(wref/w0)**4*sig2/CONST.Xsat2 : P*(w1ref/w0)**2/CONST.Xsat1;
+  const sat = 1/(1+X);
+  const base2 = CONST.A2*P*P*g*(wref/w0)**2;
+  const rateF  = two? base2*sig2*sat : CONST.A1*P*sat;
+  const rateAF = two? base2*sigAF     : CONST.A1*P*sigAF;
+  const rateSH = (two && S.chapter>=4)? CONST.ASH*P*P*g*(wref/w0)**2 : 0;
+  const theta = (S.chapter>=4 && !S.removed.hwp) ? S.theta*Math.PI/180 : 0;
+  const pr = PRESETS[S.preset], below = Math.max(0, pr.bottom - S.zf), lsv = 0.4*S.ls;
+  const ff = S.FB/(1+S.FB);
+  const epiSH = (1-ff) + ff*0.25*(1-Math.exp(-below/lsv));
+  const fwdSH = ff*(0.3+0.7*Math.exp(-below/lsv));
+  const shl = two? shgLine(S.lam, S.tau) : null;
+  const coef={};
+  for(const ch of chans()){ if(isSRS(ch)) continue;
+    const det = ch==="fl" ? (S.removed.dichroic?0.002:1) : ch==="shg" ? (S.removed.dichroic?0.002:1)*(S.removed.split?0:1) : (S.removed.condenser?0:1);
+    const geoIso = ch==="fwd"? 0.6 : 1, geoSH = ch==="fwd"? fwdSH : epiSH;
+    const leak = (ch!=="fwd" && S.removed.filter) ? (two?2:400)*P : 0;
+    coef[ch] = { cF: rateF*S.bright*eta(dyeEm,ch)*geoIso*det, cAF: rateAF*eta(afEm,ch)*geoIso*det, cSH: shl? rateSH*eta(shl.arr,ch)*geoSH*det : 0, off: leak + CONST.dark };
+  }
+  const D={two,lam,M,beta,NAeff,T,w0,zR,fwhmLat,tauOut,g,P,lsExc,pixel,turn,lineT,frameT,tauDet,sig2,sat,theta,epiSH,fwdSH,shl,coef,zSurf:pr.zSurf};
+  if(S.chapter>=5) D.srs = deriveSRS(D, wref);
+  return D;
+}
+function deriveSRS(D, wref){
+  const Pp=D.P, Ps=S.Ps*D.T;
+  const W0 = 1e7/S.lam - 1e7/CONST.lamS;                       // Ω at the pulse centres (cm⁻¹)
+  const chirp = !S.removed.rod;
+  const delay = S.removed.delayline ? 3.3 : S.delay;
+  const tauPs = S.tau/1000;
+  const gam = chirp ? CONST.gamChirp : Math.SQRT2*14.7/tauPs;
+  const wc  = chirp ? W0 + CONST.kappa*delay : W0;
+  const tcc = chirp ? Math.SQRT2*CONST.tChirp : Math.SQRT2*tauPs;
+  const ov = gauss(delay,0,tcc);
+  const KL=ramanK(ramLipid,wc,gam), KP=ramanK(ramProt,wc,gam);
+  const gain = CONST.Gsrs*Ps*(wref/D.w0)**2*ov;                 // ΔI/I per unit (K·E)
+  const collect = S.removed.condenser? 0.01 : 1;
+  const leakS = S.removed.sfilter;
+  const Idc = CONST.Resp*(Pp + (leakS?Ps:0))*1e-3*collect;      // A
+  const lt=S.laserType, shot=2*1.602e-19/Math.max(Idc,1e-12), amp=(CONST.iAmp/Math.max(Idc,1e-12))**2;
+  const nDens = f => Math.sqrt(RIN(f,lt)+shot+amp);              // relative /√Hz
+  const lockin = !S.removed.lockin, eom = !S.removed.eom;
+  const cycles = S.fmod*S.dwell*1e-6;
+  let mode = !lockin ? "dc" : !eom ? "nomod" : leakS ? "overload" : "ok";
+  let sigma;                                                       // relative, per raw pixel sample
+  const Bpix = 1/(2*S.dwell*1e-6);
+  if(mode==="dc"){ const f1=1e6/Math.max(D.frameT,1), f2=Bpix; const a=LASERS[lt].a, b=LASERS[lt].b;
+    sigma=Math.sqrt(a*1e3*Math.log(Math.max(f2/f1,1.0001)) + (b+shot+amp)*(f2-f1)); }
+  else { sigma = nDens(S.fmod)*Math.sqrt(Bpix)*Math.max(1,1/Math.max(cycles,1e-3)); }
+  const phE = 2*Math.PI*S.fmod*CONST.tElec*1e-6;                  // electronic phase (rad)
+  const wt = 2*Math.PI*S.fmod*CONST.tauTh*1e-6, aPT = CONST.Gpt*(Pp+Ps)/Math.sqrt(1+wt*wt), phPT=Math.atan(wt);
+  const phRef = S.phRef*Math.PI/180;
+  return {Pp,Ps,W0,wc,gam,chirp,delay,ov,KL,KP,gain,Idc,shot,amp,nDens,mode,sigma,cycles,phE,aPT,phPT,phRef,m:S.mdep,lt,Bpix};
+}
+function layerTerm(D, zl){
+  const dz=zl-S.zf, w=D.w0*Math.sqrt(1+(dz/D.zR)**2), d=Math.max(0,zl-D.zSurf);
+  if(D.two) return {sigma:w/(2*Math.SQRT2), weight:(D.w0/w)**2*Math.exp(-2*d/D.lsExc), haze:0, sigLin:w/2};
+  const ball=Math.exp(-d/D.lsExc);
+  return {sigma:w/2, weight:ball, haze:(1-ball), sigLin:w/2};
+}
+
+/* ============================================================ 5. image model */
+function boxesForGauss(s,n){ const wI=Math.sqrt(12*s*s/n+1); let wl=Math.floor(wI); if(wl%2===0)wl--; const wu=wl+2;
+  const m=Math.round((12*s*s-n*wl*wl-4*n*wl-3*n)/(-4*wl-4)); const out=[]; for(let i=0;i<n;i++) out.push(i<m?wl:wu); return out; }
+function boxH(a,b,r,n){ const inv=1/(2*r+1); for(let y=0;y<n;y++){ const o=y*n; let acc=0;
+  for(let x=-r;x<=r;x++) if(x>=0&&x<n) acc+=a[o+x];
+  for(let x=0;x<n;x++){ b[o+x]=acc*inv; const xa=x+r+1, xr=x-r; if(xa<n) acc+=a[o+xa]; if(xr>=0) acc-=a[o+xr]; } } }
+function boxV(a,b,r,n){ const inv=1/(2*r+1); for(let x=0;x<n;x++){ let acc=0;
+  for(let y=-r;y<=r;y++) if(y>=0&&y<n) acc+=a[y*n+x];
+  for(let y=0;y<n;y++){ b[y*n+x]=acc*inv; const ya=y+r+1, yr=y-r; if(ya<n) acc+=a[ya*n+x]; if(yr>=0) acc-=a[yr*n+x]; } } }
+const TMP=new Float32Array(G*G), OUT=new Float32Array(G*G), SRC=new Float32Array(G*G);
+const SMA=new Float32Array(G*G/4), SMB=new Float32Array(G*G/4);
+const EM={}; for(const k of ["F","C","CP","Li","Pr","Ab","Ed"]) EM[k]=new Float32Array(G*G);
+const ACTIVE={};
+let hazeF=0, hazeC=0;
+// Gaussian blur (3 box passes). Wide kernels carry only low spatial frequencies, so they are
+// computed on a k-times coarser grid and bilinearly upsampled — same result, far less work.
+function blurInto(src, sigmaPx){
+  if(sigmaPx<0.35){ OUT.set(src); return OUT; }
+  const k = sigmaPx>=24? 8 : sigmaPx>=12? 4 : sigmaPx>=6? 2 : 1;
+  if(k===1){ let s=src; for(const bw of boxesForGauss(sigmaPx,3)){ const r=(bw-1)/2; boxH(s,TMP,r,G); boxV(TMP,OUT,r,G); s=OUT; } return OUT; }
+  const n=G/k, inv=1/(k*k);
+  for(let y=0;y<n;y++) for(let x=0;x<n;x++){ let acc=0; for(let j=0;j<k;j++){ const o=(y*k+j)*G+x*k; for(let i=0;i<k;i++) acc+=src[o+i]; } SMA[y*n+x]=acc*inv; }
+  const sg=Math.sqrt(Math.max(0.01, sigmaPx*sigmaPx - (k*k-1)/12))/k;
+  for(const bw of boxesForGauss(sg,3)){ const r=(bw-1)/2; boxH(SMA,SMB,r,n); boxV(SMB,SMA,r,n); }
+  for(let y=0;y<G;y++){ const fy=(y+.5)/k-.5, iy=Math.max(0,Math.min(n-2,Math.floor(fy))), ty=clamp(fy-iy,0,1);
+    for(let x=0;x<G;x++){ const fx=(x+.5)/k-.5, ix=Math.max(0,Math.min(n-2,Math.floor(fx))), tx=clamp(fx-ix,0,1), i=iy*n+ix;
+      OUT[y*G+x]=SMA[i]*(1-tx)*(1-ty)+SMA[i+1]*tx*(1-ty)+SMA[i+n]*(1-tx)*ty+SMA[i+n+1]*tx*ty; } }
+  return OUT;
+}
+function accum(dst, kind, li, sig, wt){ const o=blurInto(LAY[kind][li], sig/DX); for(let i=0;i<o.length;i++) dst[i]+=wt*o[i]; }
+function computeGeom(D){
+  for(const k of ["F","C","Li","Pr","Ab","Ed"]){ EM[k].fill(0); ACTIVE[k]=false; } hazeF=0; hazeC=0;
+  const srs = S.chapter>=5;
+  ZL.forEach((zl,li)=>{ const t=layerTerm(D,zl); if(t.weight<1e-6 && t.haze<1e-6) return;
+    if(HAS.F[li]){ accum(EM.F,"F",li,t.sigma,t.weight); hazeF+=t.haze*MEAN.F[li]; ACTIVE.F=true; }
+    if(HAS.C[li]){ accum(EM.C,"C",li,t.sigma,t.weight); hazeC+=t.haze*MEAN.C[li]; ACTIVE.C=true; }
+    if(srs && D.two){
+      for(const k of ["Li","Pr","Ab"]) if(HAS[k][li]){ accum(EM[k],k,li,t.sigma,t.weight); ACTIVE[k]=true; }
+      if(HAS.Ed[li]){ accum(EM.Ed,"Ed",li,t.sigLin,1); ACTIVE.Ed=true; }      // transmission artefact: linear, not sectioned
+    }
+  });
+}
+function computePol(D){
+  EM.CP.fill(0); ACTIVE.CP=false; if(!D.two || S.chapter<4) return;
+  const pm=polMax(S.rho);
+  ZL.forEach((zl,li)=>{ if(!HAS.C[li]) return; const t=layerTerm(D,zl); if(t.weight<1e-6) return;
+    const c=LAY.C[li], p=LAY.P[li]; for(let i=0;i<SRC.length;i++) SRC[i]= c[i]>0 ? c[i]*polFactor(D.theta-p[i],S.rho)/pm : 0;
+    const o=blurInto(SRC,t.sigma/DX); for(let i=0;i<o.length;i++) EM.CP[i]+=t.weight*o[i]; ACTIVE.CP=true; });
+}
+function bil(Arr,x,y){ const fx=(x+L/2)/DX-.5, fy=(y+L/2)/DX-.5; const ix=Math.floor(fx), iy=Math.floor(fy);
+  if(ix<0||iy<0||ix>=G-1||iy>=G-1) return 0; const tx=fx-ix, ty=fy-iy, i=iy*G+ix;
+  return Arr[i]*(1-tx)*(1-ty)+Arr[i+1]*tx*(1-ty)+Arr[i+G]*(1-tx)*ty+Arr[i+G+1]*tx*ty; }
+const EK=["F","C","CP","Li","Pr","Ab","Ed"];
+function pixelE(D,row,col){
+  const p=D.pixel, sub=Math.min(8,Math.max(1,Math.ceil(p/DX)));
+  const y=(row+.5)*p-S.FOV/2, rev = S.bidir && row%2===1, v=p/S.dwell, shift=(S.lag-S.corr)*v*(rev?-1:1);
+  const E=[0,0,0,0,0,0,0];
+  const xs = S.removed.galvo ? [0] : Array.from({length:sub},(_,s)=>col*p-S.FOV/2-shift+(s+.5)*p/sub);
+  const yy = S.removed.galvo ? 0 : y;
+  for(let k=0;k<7;k++){ if(!ACTIVE[EK[k]]) continue; let a=0; for(const x of xs) a+=bil(EM[EK[k]],x,yy); E[k]=a/xs.length; }
+  E[0]+=hazeF; E[1]+=hazeC;
+  let vig=1; if(S.removed.relay && !S.removed.galvo){ const u=(col*p+p/2-S.FOV/2)/75, w=y/75; vig=Math.exp(-2*2.56*(u*u+w*w)); }
+  const pv = D.two? vig*vig : vig; for(let k=0;k<6;k++) E[k]*=pv;
+  return E;
+}
+function muOf(c,E){ return (c.cF*E[0] + c.cAF*E[1] + c.cSH*E[2] + c.off)*S.dwell; }
+// SRS lock-in output in ppm (X, Y). Same function drives the image, the readouts and the power sweep.
+function srsXY(R,E){
+  const sig = R.gain*(R.KL*E[3]+R.KP*E[4]);
+  if(R.mode==="dc") return [ (sig + CONST.Tedge*E[6])*1e6, 0 ];
+  if(R.mode==="nomod") return [0,0];
+  if(R.mode==="overload") return [ 1e4*(0.97+0.03*E[6]), 0 ];
+  const pt = R.aPT*E[5];
+  const zr = R.m*(sig*Math.cos(R.phE) + pt*Math.cos(R.phE-R.phPT)), zi = R.m*(sig*Math.sin(R.phE) + pt*Math.sin(R.phE-R.phPT));
+  const c=Math.cos(R.phRef), s=Math.sin(R.phRef);
+  return [ (zr*c+zi*s)*1e6, (zi*c-zr*s)*1e6 ];
+}
+let EXP={}, IMG={}, expMax={}, NOISE={};
+function computeExpected(D){
+  const N=S.N, list=chans();
+  for(const ch of list){ if(!EXP[ch]||EXP[ch].length!==N*N){ EXP[ch]=new Float32Array(N*N); IMG[ch]=new Float32Array(N*N); } expMax[ch]=0; }
+  for(const ch of Object.keys(EXP)) if(!list.includes(ch)){ delete EXP[ch]; delete IMG[ch]; delete expMax[ch]; }
+  const srs = list.includes("srsX");
+  NOISE = srs ? {srsX:D.srs.sigma*1e6, srsY:(D.srs.mode==="dc"?0:D.srs.sigma*1e6)} : {};
+  for(let j=0;j<N;j++) for(let i=0;i<N;i++){ const E=pixelE(D,j,i), idx=j*N+i;
+    for(const ch of list){ if(isSRS(ch)) continue; const mu=muOf(D.coef[ch],E); EXP[ch][idx]=mu; if(mu>expMax[ch]) expMax[ch]=mu; }
+    if(srs){ const [x,y]=srsXY(D.srs,E); EXP.srsX[idx]=x; EXP.srsY[idx]=y; expMax.srsX=Math.max(expMax.srsX,Math.abs(x)); expMax.srsY=Math.max(expMax.srsY,Math.abs(y)); }
+  }
+}
+
+/* ============================================================ 6. scan engine */
+const rnd=mulberry32(12345);
+const scan={k:0, frame:0, y:{}, frameDone:false};
+let imgCanvas=document.createElement("canvas"), imgCtx, imgData;
+function resetImage(){
+  imgCanvas.width=imgCanvas.height=S.N; imgCtx=imgCanvas.getContext("2d"); imgData=imgCtx.createImageData(S.N,S.N);
+  for(let i=0;i<imgData.data.length;i+=4){imgData.data[i]=4;imgData.data[i+1]=7;imgData.data[i+2]=10;imgData.data[i+3]=255;}
+  for(const ch in IMG) IMG[ch].fill(0); scan.k=0; scan.y={};
+}
+function dispMax(ch){ const m=expMax[ch]||0, n=NOISE[ch]; if(n!==undefined) return S.autoContrast? Math.max(3*n, m+2*n, 1e-3) : 300; return S.autoContrast ? Math.max(3, m+2*Math.sqrt(m)) : 60; }
+function lutG(t){ return [255*0.55*t**1.6, 255*t**0.9, 255*0.5*t**1.3]; }
+function lutV(t){ return [255*0.78*t**1.1, 255*0.5*t**1.7, 255*t**0.8]; }
+function lutS(v){ if(v>=0){ const t=clamp(v,0,1); return [255*t**0.7, 180*t**1.05, 70*t**1.8]; } const t=clamp(-v,0,1); return [60*t**1.5, 150*t**1.0, 255*t**0.8]; }
+function srsVal(idx,which){ if(which==="srsR"){ const x=IMG.srsX?IMG.srsX[idx]:0, y=IMG.srsY?IMG.srsY[idx]:0; return Math.hypot(x,y); } return IMG[which]?IMG[which][idx]:0; }
+function writePixel(idx){
+  const o=idx*4; let r=0,g=0,b=0; const v=S.view;
+  const T=ch=> IMG[ch]? clamp(IMG[ch][idx]/dispMax(ch),0,1) : 0;
+  if(v==="srsX"||v==="srsY"||v==="srsR"){ const dm = v==="srsR"? Math.hypot(dispMax("srsX"),dispMax("srsY"))/Math.SQRT2 : dispMax(v); [r,g,b]=lutS(srsVal(idx,v)/dm); }
+  else if(v==="merge"){ const a=lutG(T("fl")), c=lutV(T("shg")); r=a[0]+c[0]; g=a[1]+c[1]; b=a[2]+c[2];
+    if(IMG.srsX){ const s=lutS(Math.max(0,IMG.srsX[idx])/dispMax("srsX")); r+=s[0]; g+=s[1]; b+=s[2]; } }
+  else if(v==="fl"||!IMG[v]){ [r,g,b]=lutG(T("fl")); }
+  else { [r,g,b]=lutV(T(v)); }
+  imgData.data[o]=Math.min(255,r); imgData.data[o+1]=Math.min(255,g); imgData.data[o+2]=Math.min(255,b); imgData.data[o+3]=255;
+}
+let D=derive();
+function stepScan(budget){
+  const N=S.N, list=chans(); let n=0; const maxPix=N*N;
+  const aDet=1-Math.exp(-S.dwell/D.tauDet), aLI=1-Math.exp(-S.dwell/Math.max(S.tauLI,0.01));
+  while(budget>0 && n<maxPix){
+    const row=Math.floor(scan.k/N), cs=scan.k%N;
+    if(cs===0){ for(const ch of list) scan.y[ch]=0; budget-=D.turn; }
+    const col=(S.bidir && row%2===1)? N-1-cs : cs, idx=row*N+col;
+    for(const ch of list){
+      let c, a;
+      if(isSRS(ch)){ c=EXP[ch][idx]+(NOISE[ch]||0)*gaussRnd(rnd); a = D.srs.mode==="dc"? aDet : aLI; }
+      else { c=poisson(EXP[ch][idx],rnd); a=aDet; }
+      const y0=scan.y[ch]??c; const y=y0+a*(c-y0); scan.y[ch]=y; IMG[ch][idx]=y; }
+    writePixel(idx); budget-=S.dwell; n++; scan.k++;
+    if(scan.k>=N*N){ scan.k=0; scan.frame++; scan.frameDone=true; }
+  }
+}
+
+/* ============================================================ 7. controls */
+const CTRLS=[
+  {grp:"光源", id:"P1", label:"488 nm 平均功率", min:0.002, max:1, log:true, unit:"mW", d:3, show:()=>!D.two},
+  {grp:"光源", id:"P2", label:()=>S.chapter>=5?"泵浦（可调通道）平均功率":"飞秒激光平均功率", min:1, max:200, log:true, unit:"mW", d:1, show:()=>D.two},
+  {grp:"光学", id:"NA", label:"物镜 NA", min:0.1, max:1.2, step:0.01, unit:"", d:2},
+  {grp:"光学", id:"M", label:"扩束倍率（后瞳填充）", min:1, max:10, step:0.1, unit:"×", d:1},
+  {grp:"扫描与采集", id:"N", label:"像素数", type:"select", opts:[64,128,256,512], unit:"px"},
+  {grp:"扫描与采集", id:"FOV", label:"视场 FOV", min:8, max:150, step:1, unit:"µm", d:0},
+  {grp:"扫描与采集", id:"dwell", label:"像素驻留时间", min:0.1, max:50, log:true, unit:"µs", d:2},
+  {grp:"扫描与采集", id:"bidir", label:"扫描方式", type:"seg", opts:[[false,"单向+回扫"],[true,"双向"]]},
+  {grp:"扫描与采集", id:"lag", label:"振镜相位滞后（硬件）", min:0, max:3, step:0.02, unit:"µs", d:2, show:()=>S.bidir},
+  {grp:"扫描与采集", id:"corr", label:"行相位校正（软件）", min:0, max:3, step:0.02, unit:"µs", d:2, show:()=>S.bidir},
+  {grp:"扫描与采集", id:"B", label:"PMT 探测链带宽", min:0.05, max:20, log:true, unit:"MHz", d:2},
+  {grp:"扫描与采集", id:"speed", label:"演示回放速度", type:"select", opts:[[1,"实时"],[0.1,"1/10"],[0.01,"1/100"],[0.001,"1/1000"]]},
+  {grp:"样品", id:"preset", label:"样品", type:"select", opts:Object.entries(PRESETS).map(([k,v])=>[k,v.label])},
+  {grp:"样品", id:"zf", label:"焦面深度 z_f", min:-40, max:40, step:1, unit:"µm", d:0},
+  {grp:"样品", id:"bright", label:"染料亮度", min:0.1, max:5, log:true, unit:"×", d:2},
+  {grp:"样品", id:"ls", label:"组织散射长度 l_s (920 nm)", min:40, max:600, log:true, unit:"µm", d:0},
+  {grp:"第 3 章 · 非线性激发", ch:3, id:"mode", label:"激发方式", type:"seg", opts:[["1P","单光子 488 CW"],["2P","双光子 · 飞秒"]]},
+  {grp:"第 3 章 · 非线性激发", ch:3, id:"lam", label:()=>S.chapter>=5?"泵浦波长 λ_p（可调通道）":"激发波长 λ", min:700, max:1100, step:1, unit:"nm", d:0, show:()=>D.two},
+  {grp:"第 3 章 · 非线性激发", ch:3, id:"pulsed", label:"时间结构", type:"seg", opts:[[true,"飞秒脉冲"],[false,"连续 CW"]], show:()=>D.two && S.chapter<5},
+  {grp:"第 3 章 · 非线性激发", ch:3, id:"tau", label:"脉宽 τ（激光输出）", min:40, max:600, log:true, unit:"fs", d:0, show:()=>D.two},
+  {grp:"第 3 章 · 非线性激发", ch:3, id:"rep", label:"重复频率 f", min:20, max:200, log:true, unit:"MHz", d:0, show:()=>D.two},
+  {grp:"第 4 章 · SHG", ch:4, id:"theta", label:"样品处偏振方向 θ", min:0, max:180, step:1, unit:"°", d:0, show:()=>D.two, note:()=>S.removed.hwp?"半波片已拔掉：偏振固定在 0°":""},
+  {grp:"第 4 章 · SHG", ch:4, id:"shgC", label:"SHG 滤光片中心（带宽 20 nm）", min:400, max:560, step:5, unit:"nm", d:0},
+  {grp:"第 4 章 · SHG", ch:4, id:"FB", label:"样品 SHG 前/后向比 F/B（示例值）", min:1, max:30, log:true, unit:"", d:1},
+  {grp:"第 4 章 · SHG", ch:4, id:"rho", label:"χ 比 ρ = χ_xxz/χ_zzz（示例值）", min:0, max:1.6, step:0.02, unit:"", d:2, note:()=>"文献中胶原的 ρ 随样品与测量方法而异"},
+  {grp:"第 5 章 · SRS", ch:5, id:"Ps", label:"Stokes 1040 nm 平均功率", min:1, max:120, log:true, unit:"mW", d:1},
+  {grp:"第 5 章 · SRS", ch:5, id:"delay", label:"泵浦–Stokes 延时", min:-4, max:4, step:0.01, unit:"ps", d:2, note:()=>S.removed.delayline?"延时线已拔掉：延时固定在 3.3 ps":""},
+  {grp:"第 5 章 · SRS", ch:5, id:"laserType", label:"激光噪声", type:"select", opts:Object.entries(LASERS).map(([k,v])=>[k,v.label])},
+  {grp:"第 5 章 · SRS", ch:5, id:"fmod", label:"调制频率 f_mod", min:1e4, max:2e7, log:true, unit:"Hz", d:0, fmtv:v=>v>=1e6?fmt(v/1e6,2)+" MHz":fmt(v/1e3,1)+" kHz"},
+  {grp:"第 5 章 · SRS", ch:5, id:"mdep", label:"调制深度 m", min:0.05, max:1, step:0.01, unit:"", d:2},
+  {grp:"第 5 章 · SRS", ch:5, id:"tauLI", label:"锁相时间常数 τ_LI", min:0.1, max:50, log:true, unit:"µs", d:2},
+  {grp:"第 5 章 · SRS", ch:5, id:"phRef", label:"锁相参考相位 φ_ref", min:0, max:360, step:1, unit:"°", d:0},
+];
+const toSlider=(c,v)=>c.log? 1000*Math.log(v/c.min)/Math.log(c.max/c.min) : v;
+const fromSlider=(c,s)=>c.log? c.min*Math.pow(c.max/c.min,s/1000) : +s;
+const lbl=c=> typeof c.label==="function"? c.label() : c.label;
+function buildRack(){
+  const rack=$("rack"); rack.innerHTML=""; let grpEl=null, cur="";
+  for(const c of CTRLS){
+    c.row=null; if(c.ch && S.chapter<c.ch) continue;
+    if(c.grp!==cur){ grpEl=document.createElement("div"); grpEl.className="grp"; grpEl.innerHTML=`<h3>${c.grp}</h3>`; rack.appendChild(grpEl); cur=c.grp; }
+    const row=document.createElement("div"); row.className="ctl"; c.row=row;
+    const lab=document.createElement("label"); lab.textContent=lbl(c); lab.htmlFor="c_"+c.id; row.appendChild(lab);
+    if(c.type==="select"){
+      const sel=document.createElement("select"); sel.id="c_"+c.id;
+      for(const o of c.opts){ const [v,t]=Array.isArray(o)?o:[o,o+" "+(c.unit||"")]; const op=document.createElement("option"); op.value=String(v); op.textContent=t; sel.appendChild(op); }
+      sel.value=String(S[c.id]); sel.onchange=()=>{ const raw=sel.value; S[c.id]= isNaN(+raw)? raw : +raw; onChange(c.id); };
+      row.appendChild(sel);
+    } else if(c.type==="seg"){
+      const seg=document.createElement("div"); seg.className="seg"; seg.id="c_"+c.id;
+      for(const [v,t] of c.opts){ const b=document.createElement("button"); b.type="button"; b.textContent=t; b.setAttribute("aria-pressed",String(S[c.id]===v));
+        b.onclick=()=>{ S[c.id]=v; [...seg.children].forEach(x=>x.setAttribute("aria-pressed","false")); b.setAttribute("aria-pressed","true"); onChange(c.id); };
+        seg.appendChild(b); }
+      row.appendChild(seg);
+    } else {
+      const out=document.createElement("output"); out.id="o_"+c.id; row.appendChild(out);
+      const inp=document.createElement("input"); inp.type="range"; inp.id="c_"+c.id;
+      if(c.log){ inp.min=0; inp.max=1000; inp.step=1; } else { inp.min=c.min; inp.max=c.max; inp.step=c.step; }
+      inp.value=toSlider(c,S[c.id]);
+      const upd=()=>{ out.textContent= c.fmtv? c.fmtv(S[c.id]) : fmt(S[c.id],c.d)+(c.unit?" "+c.unit:""); };
+      inp.oninput=()=>{ S[c.id]=fromSlider(c,inp.value); upd(); onChange(c.id); };
+      upd(); row.appendChild(inp);
+    }
+    if(c.note){ const n=document.createElement("div"); n.className="note"; n.id="n_"+c.id; row.appendChild(n); }
+    grpEl.appendChild(row);
+  }
+  const extra=document.createElement("div"); extra.className="grp";
+  extra.innerHTML=`<label class="check"><input type="checkbox" id="c_auto" ${S.autoContrast?"checked":""}> 自动对比度（关闭后可直接看出信号变暗）</label>
+  <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn" id="restoreBtn" type="button">装上所有组件</button><button class="btn" id="resetBtn" type="button">恢复默认参数</button></div>`;
+  rack.appendChild(extra);
+  $("c_auto").onchange=e=>{S.autoContrast=e.target.checked; repaintImage();};
+  $("restoreBtn").onclick=()=>{ for(const k in S.removed) S.removed[k]=false; onChange("removed"); };
+  $("resetBtn").onclick=()=>{ Object.assign(S,DEFAULTS); if(S.chapter>=5) S.lam=802; buildRack(); onChange("reset"); };
+  refreshVisibility();
+}
+function refreshVisibility(){ for(const c of CTRLS){ if(!c.row) continue; c.row.hidden = c.show? !c.show() : false;
+  if(c.note){ const n=$("n_"+c.id); if(n) n.textContent=c.note(); } } }
+function repaintImage(){ for(let i=0;i<S.N*S.N;i++) writePixel(i); }
+
+/* ============================================================ 8. recompute pipeline */
+let dirtyG=true, dirtyP=true, dirtyExp=true, timer=null;
+const G_KEYS=new Set(["NA","M","zf","ls","mode","preset","removed","reset","chapter","lam"]);
+const P_KEYS=new Set(["theta","rho"]);
+function onChange(key){
+  D=derive();
+  if(key==="preset"){ buildSample(S.preset); }
+  if(key==="zf"||key==="preset"||key==="chapter") buildTopView();
+  if(key==="N"||key==="chapter"||key==="preset") resetImage();
+  if(G_KEYS.has(key)){ dirtyG=true; dirtyP=true; }
+  if(P_KEYS.has(key)) dirtyP=true;
+  dirtyExp=true;
+  refreshVisibility(); buildViews(); updateReadouts(); drawSide(); drawSpec(); drawNoise(); renderTasks();
+  clearTimeout(timer); timer=setTimeout(recompute, 50);
+}
+function recompute(){
+  D=derive();
+  if(dirtyG){ computeGeom(D); dirtyG=false; }
+  if(dirtyP){ computePol(D); dirtyP=false; }
+  if(dirtyExp){ computeExpected(D); dirtyExp=false; }
+  updateReadouts(); renderTasks(); trackSRS();
+}
+
+/* ============================================================ 9. readouts + views */
+const CH_NAME={fl:"荧光通道",shg:"SHG · 后向（NDD）",fwd:"SHG · 前向",srsX:"SRS · 锁相 X",srsY:"SRS · 锁相 Y",srsR:"SRS · R = √(X²+Y²)",merge:"合成"};
+let viewsKey="";
+function buildViews(){
+  const el=$("views"); const list=chans();
+  if(list.length===1){ el.hidden=true; if(S.view!=="fl"){ S.view="fl"; repaintImage(); } return; }
+  el.hidden=false;
+  const opts = S.chapter>=5 ? [["srsX","SRS X"],["srsY","SRS Y"],["srsR","SRS R"],["fl","荧光"],["shg","SHG 后向"],["merge","合成"]]
+                            : [["fl","荧光"],["shg","SHG 后向"],["fwd","SHG 前向"],["merge","合成"]];
+  const key=opts.map(o=>o[0]).join();
+  if(!opts.some(o=>o[0]===S.view)) S.view=opts[0][0];
+  if(viewsKey!==key){ el.innerHTML=""; for(const [v,t] of opts){ const b=document.createElement("button"); b.type="button"; b.dataset.v=v; b.textContent=t;
+      b.onclick=()=>{ S.view=v; viewsSeen.add(v); if(S.srsDCSeen===undefined && v.startsWith("srs")) {} buildViews(); repaintImage(); renderTasks(); }; el.appendChild(b);} viewsKey=key; }
+  [...el.children].forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v===S.view)));
+  $("imgLbl").textContent="重建图像 · "+CH_NAME[S.view];
+}
+const viewsSeen=new Set(["fl"]);
+function updateReadouts(){
+  const nyq = D.pixel/(D.fwhmLat/2), beamSpeed=D.pixel/S.dwell, lineRate=1e6/D.lineT;
+  const items=[
+    ["焦点束腰 w₀ (1/e²)", fmt(D.w0,2)+" µm"],
+    ["横向分辨 FWHM", fmt(D.fwhmLat,2)+" µm"],
+    [D.two?"光学切片 ≈ 2z_R":"光学切片", D.two? fmt(2*D.zR,2)+" µm" : "无（∫I dA 与 z 无关）", D.two?"good":"warn"],
+    ["NA_eff / 后瞳填充 β", fmt(D.NAeff,2)+" / "+fmt(D.beta,2), D.beta<0.7?"bad":""],
+    ["样品处功率", fmt(D.P, D.two?1:3)+" mW"],
+    ["像素尺寸", fmt(D.pixel,3)+" µm"],
+    ["采样 / 奈奎斯特", nyq>1? fmt(nyq,2)+"× 欠采样" : "满足 ("+fmt(nyq,2)+")", nyq>1?"bad":"good"],
+    ["线频 / 帧时间", fmt(lineRate/1000,2)+" kHz / "+fmt(D.frameT/1e6,3)+" s"],
+  ];
+  if(S.chapter<5){ items.push(["光束扫描速度", fmt(beamSpeed*1000,0)+" mm/s"]); items.push(["τ_det / 驻留", fmt(D.tauDet,3)+" / "+fmt(S.dwell,2)+" µs", D.tauDet>S.dwell?"bad":""]); }
+  if(S.bidir){ const e=(S.lag-S.corr)*2*beamSpeed; items.push(["双向行间错位", fmt(Math.abs(e),2)+" µm", Math.abs(e)>D.pixel?"bad":"good"]); }
+  if(D.two && S.chapter<5){
+    items.push(["脉冲增益 g/(fτ)", S.pulsed? fmt(D.g,0)+"×" : "1×（CW）", S.pulsed?"":"bad"]);
+    items.push(["样品处脉宽", fmt(D.tauOut,0)+" fs", D.tauOut>1.3*S.tau?"warn":""]);
+    items.push(["染料 σ₂(λ)（相对）", fmt(D.sig2,2), D.sig2<0.3?"warn":""]);
+    items.push(["荧光饱和因子 s", fmt(D.sat,2), D.sat<0.8?"warn":""]);
+  }
+  if(S.chapter===4 && D.shl){
+    const inBand=Math.abs(S.lam/2-S.shgC)<=10, inFl=S.lam/2>=FL_BAND[0]&&S.lam/2<=FL_BAND[1];
+    items.push(["SHG 波长 λ/2", fmt(S.lam/2,0)+" nm", inFl?"bad":(inBand?"good":"warn")]);
+    items.push(["SHG 后向 / 前向收集", fmt(D.epiSH,2)+" / "+fmt(D.fwdSH,2)]);
+  }
+  if(D.srs){ const R=D.srs, sigL=R.gain*R.KL, snr=R.mode==="ok"? R.m*sigL/R.sigma : R.mode==="dc"? sigL/R.sigma : 0;
+    const MODE={ok:"锁相解调",dc:"直流探测（无锁相）",nomod:"无调制：锁相只看到噪声",overload:"锁相过载"}[R.mode];
+    items.push(["探测方式", MODE, R.mode==="ok"?"good":"bad"]);
+    items.push(["激发中心 Ω_c / 带宽 Γ", fmt(R.wc,0)+" / "+fmt(R.gam,0)+" cm⁻¹", R.gam>60?"warn":""]);
+    items.push(["时间重叠", fmt(R.ov,2), R.ov<0.6?"bad":(R.ov<0.9?"warn":"good")]);
+    items.push(["脂滴 ΔI/I（未调制）", fmt(sigL,6)]);
+    items.push(["调制频率 / 每像素周期", (S.fmod>=1e6?fmt(S.fmod/1e6,2)+" MHz":fmt(S.fmod/1e3,0)+" kHz")+" / "+fmt(R.cycles,1), R.cycles<1?"bad":""]);
+    items.push(["f_mod 处 RIN", fmt(db(RIN(S.fmod,R.lt)),0)+" dB/Hz"]);
+    items.push(["散粒噪声极限", fmt(db(R.shot),0)+" dB/Hz"]);
+    items.push(["每像素噪声 σ", fmt(R.sigma*1e6,1)+" ppm"]);
+    items.push(["脂滴单像素 SNR", fmt(snr,1), snr<3?"bad":(snr<10?"warn":"good")]);
+    items.push(["电子学相位 φ_e", fmt(((R.phE*180/Math.PI)%360+360)%360,0)+"°"]);
+    items.push(["光热相位滞后", fmt(R.phPT*180/Math.PI,0)+"°"]);
+    items.push(["光电流 I_DC", fmt(R.Idc*1e3,2)+" mA"]);
+  }
+  for(const ch of chans()){ if(isSRS(ch)) continue; if(S.chapter>=5 && ch!=="fl") continue; const m=expMax[ch]||0; items.push([`峰值光子 · ${CH_NAME[ch]}`, fmt(m,1), m<5?"bad":(m<20?"warn":"")]); }
+  $("readouts").innerHTML=items.map(([k,v,c])=>`<div class="ro ${c||""}"><span class="k">${k}</span><span class="v" title="${v}">${v}</span></div>`).join("");
+  $("fovLbl").textContent=`FOV ${fmt(S.FOV,0)} µm · z_f ${S.zf>0?"+":""}${fmt(S.zf,0)} µm`;
+}
+
+/* ============================================================ 10. sample top view + scan */
+const topCanvas=document.createElement("canvas"); topCanvas.width=topCanvas.height=384;
+function depthColor(dz){ const a=Math.exp(-Math.abs(dz)/14); const base = dz<0? [70,170,255] : [220,90,200];
+  return [base[0]*(1-a)+235*a, base[1]*(1-a)+245*a, base[2]*(1-a)+235*a, 0.25+0.75*a]; }
+function buildTopView(){
+  const c=topCanvas.getContext("2d"), im=c.createImageData(384,384), acc=new Float32Array(384*384*3);
+  const add=(m,o,i,rgb,s)=>{ const v=Math.min(1,(m[i]+m[i+1]+m[i+G]+m[i+G+1])*0.25)*s; if(v>0){ acc[o]+=rgb[0]*v; acc[o+1]+=rgb[1]*v; acc[o+2]+=rgb[2]*v; } };
+  ZL.forEach((zl,li)=>{ const [r,g,b,a]=depthColor(zl-S.zf), ac=0.25+0.75*Math.exp(-Math.abs(zl-S.zf)/14);
+    for(let y=0;y<384;y++) for(let x=0;x<384;x++){ const i=(2*y)*G+2*x, o=(y*384+x)*3;
+      if(HAS.F[li]) add(LAY.F[li],o,i,[r,g,b],a*(S.preset==="beads"?0.15:1));
+      if(HAS.C[li]) add(LAY.C[li],o,i,[180,140,255],ac*0.8);
+      if(HAS.Pr[li]) add(LAY.Pr[li],o,i,[110,150,210],ac*0.9);
+      if(HAS.Li[li]) add(LAY.Li[li],o,i,[255,180,80],ac);
+      if(HAS.Ab[li]) add(LAY.Ab[li],o,i,[200,60,60],ac);
+    } });
+  for(let i=0;i<384*384;i++){ im.data[i*4]=Math.min(255,acc[i*3]+8); im.data[i*4+1]=Math.min(255,acc[i*3+1]+10); im.data[i*4+2]=Math.min(255,acc[i*3+2]+18); im.data[i*4+3]=255; }
+  c.putImageData(im,0,0);
+}
+function drawScanView(){
+  const cv=$("scanview"), c=cv.getContext("2d"), W=cv.width;
+  c.drawImage(topCanvas,0,0,W,W);
+  const s=W/L, f=S.FOV*s, x0=W/2-f/2, y0=W/2-f/2;
+  c.strokeStyle="rgba(242,204,107,.9)"; c.lineWidth=1.2; c.strokeRect(x0,y0,f,f);
+  const N=S.N, row=Math.floor(scan.k/N), cs=scan.k%N, col=(S.bidir&&row%2===1)?N-1-cs:cs;
+  const bx = S.removed.galvo? W/2 : x0+(col+.5)/N*f, by = S.removed.galvo? W/2 : y0+(row+.5)/N*f;
+  if(!S.removed.galvo){ c.strokeStyle="rgba(242,204,107,.35)"; c.beginPath(); const sx=(S.bidir&&row%2===1)? x0+f : x0; c.moveTo(sx,by); c.lineTo(bx,by); c.stroke(); }
+  const col2 = D.two? "226,80,106" : "62,211,234", r=Math.max(2.5, D.w0*s);
+  const g=c.createRadialGradient(bx,by,0,bx,by,r*3); g.addColorStop(0,`rgba(${col2},1)`); g.addColorStop(1,`rgba(${col2},0)`);
+  c.fillStyle=g; c.beginPath(); c.arc(bx,by,r*3,0,7); c.fill();
+  if(S.chapter===4 && D.two){
+    const cx=34, cy=34, R=22, ux=Math.cos(D.theta)*R, uy=Math.sin(D.theta)*R;
+    c.fillStyle="rgba(12,17,28,.75)"; c.beginPath(); c.arc(cx,cy,30,0,7); c.fill();
+    c.strokeStyle="#f2cc6b"; c.lineWidth=2; c.beginPath(); c.moveTo(cx-ux,cy-uy); c.lineTo(cx+ux,cy+uy); c.stroke();
+    for(const sg of [1,-1]){ const ex=cx+sg*ux, ey=cy+sg*uy, a=D.theta+(sg>0?0:Math.PI); c.beginPath(); c.moveTo(ex,ey);
+      c.lineTo(ex-7*Math.cos(a-0.45),ey-7*Math.sin(a-0.45)); c.lineTo(ex-7*Math.cos(a+0.45),ey-7*Math.sin(a+0.45)); c.closePath(); c.fillStyle="#f2cc6b"; c.fill(); }
+    c.fillStyle="#e5e9f3"; c.font="11px "+tok("--f-data"); c.fillText("E",cx+24,cy+28);
+  }
+}
+function drawImage(){
+  imgCtx.putImageData(imgData,0,0);
+  const cv=$("image"), c=cv.getContext("2d"); c.imageSmoothingEnabled=false; c.drawImage(imgCanvas,0,0,cv.width,cv.height);
+  const N=S.N, row=Math.floor(scan.k/N); c.fillStyle="rgba(242,204,107,.55)"; c.fillRect(0,row/N*cv.height,cv.width,Math.max(1,cv.height/N));
+  if(S.view.startsWith("srs") && D.srs){ c.font="12px "+tok("--f-data"); c.fillStyle="rgba(12,17,28,.7)"; c.fillRect(4,4,150,20); c.fillStyle="#e5e9f3";
+    c.fillText(`满量程 ±${fmt(dispMax(S.view==="srsR"?"srsX":S.view),0)} ppm`,10,18); }
+  $("frameLbl").textContent=`帧 #${scan.frame} · ${S.N}×${S.N}`;
+}
+
+/* ============================================================ 11. optical table */
+let TSo=1.7, TSs=1.7, TSp=1.7, TSn=1.7;
+const COMP=[
+  {id:"laser", x:16,y:122,w:80,h:56, rm:false},
+  {id:"hwp", x:104,y:130,w:28,h:40, rm:true, ch:4},
+  {id:"compressor", x:140,y:126,w:60,h:48, rm:true, ch:3, maxch:4, only2P:true},
+  {id:"combiner", x:140,y:132,w:36,h:36, rm:false, ch:5},
+  {id:"rod", x:182,y:132,w:24,h:36, rm:true, ch:5},
+  {id:"eom", x:54,y:250,w:52,h:40, rm:true, ch:5},
+  {id:"delayline", x:136,y:250,w:46,h:44, rm:true, ch:5},
+  {id:"expander", x:212,y:112,w:84,h:76, rm:true},
+  {id:"galvo", x:306,y:118,w:54,h:64, rm:true},
+  {id:"relay", x:376,y:100,w:260,h:100, rm:true},
+  {id:"dichroic", x:736,y:120,w:60,h:60, rm:true},
+  {id:"filter", x:744,y:94,w:44,h:18, rm:true},
+  {id:"split", x:746,y:58,w:40,h:30, rm:true, ch:4},
+  {id:"pmt", x:728,y:8,w:76,h:38, rm:false},
+  {id:"pmt2", x:640,y:54,w:80,h:38, rm:false, ch:4},
+  {id:"daq", x:860,y:8,w:110,h:38, rm:false},
+  {id:"objective", x:728,y:212,w:76,h:58, rm:false},
+  {id:"sample", x:706,y:300,w:120,h:26, rm:false},
+  {id:"condenser", x:736,y:336,w:60,h:28, rm:true, ch:4},
+  {id:"sfilter", x:744,y:370,w:44,h:14, rm:true, ch:5},
+  {id:"fpmt", x:728,y:392,w:76,h:38, rm:false, ch:4, maxch:4},
+  {id:"pd", x:728,y:392,w:76,h:38, rm:false, ch:5},
+  {id:"lockin", x:840,y:392,w:110,h:38, rm:true, ch:5},
+];
+const INFO={
+  laser:()=> S.chapter>=5? [`双输出飞秒激光：可调通道 ${fmt(S.lam,0)} nm（泵浦）+ 固定 1040 nm（Stokes）`,"两路来自同一台激光，天然同步；Ω = 10⁷/λ_p − 10⁷/1040 = "+fmt(1e7/S.lam-1e7/1040,0)+" cm⁻¹。"]
+         : D.two? [`飞秒激光 ${fmt(S.lam,0)} nm（${fmt(S.tau,0)} fs，${fmt(S.rep,0)} MHz）`,"把同样的平均功率压进极短的脉冲，I² 的时间平均提高 g/(fτ) 倍。"] : ["488 nm 连续激光","提供激发光子。单光子激发：信号 ∝ I。"],
+  hwp:()=>["半波片 λ/2（第 4 章新增）","转动样品处的线偏振方向。拔掉它：偏振固定在 0°。"],
+  compressor:()=>["色散预补偿","抵消约 6000 fs² 的正 GDD。拿掉它：样品处脉冲被展宽，双光子信号按 1/τ 下降。"],
+  combiner:()=>["合束二向色镜（第 5 章新增）","让泵浦与 Stokes 共线进入同一条扫描光路——扫描、物镜、样品台全部复用。"],
+  rod:()=>["玻璃棒（啁啾 / 光谱聚焦）","把两束飞秒脉冲都拉成皮秒啁啾脉冲：瞬时频率差固定，激发带宽从 ~"+fmt(Math.SQRT2*14.7/(S.tau/1000),0)+" 缩到 25 cm⁻¹，拉曼位移随延时调谐。拿掉它：变换极限脉冲，分不开相邻的拉曼峰。"],
+  eom:()=>["电光调制器 EOM（调制 Stokes）","以 f_mod 开关 Stokes：SRS 信号随之出现在泵浦上的 f_mod 处，而激光的低频强度噪声不在那里。"+(S.removed.eom?"现在没装：信号只在直流。":"")],
+  delayline:()=>["延时线","调节两束脉冲到达样品的时间差；带啁啾时，延时就是在选拉曼位移。拿掉它：延时固定在 3.3 ps，脉冲不重叠。"],
+  expander:()=>["扩束器 ×"+fmt(S.M,1),"让光束填满物镜后瞳 (β≈1)。拿掉它：NA_eff 降到 "+fmt(S.NA*Math.min(1,CONST.Dbeam0/(2*CONST.fObj*S.NA)),2)+"。"],
+  galvo:()=>["XY 扫描振镜","把光束角度变成焦点位置；采集卡按同一时钟采样。拿掉它：每个像素都测同一个点。"],
+  relay:()=>["扫描镜 + 筒镜（4f 中继）","让振镜面与物镜后焦面共轭。拿掉它：光束在后瞳上平移，视场四角变暗。"],
+  dichroic:()=>["二向色镜","分开激发光与后向发射光。拿掉它：后向的荧光和 SHG 到不了 NDD 探测器。"],
+  filter:()=>["发射短通滤光片（OD≥6）","挡住残余激光。拿掉它：激光散射光进入后向 PMT。"],
+  split:()=>["分色二向色镜","把 λ/2 附近的光引向 SHG 通道。拿掉它：SHG 通道没有信号。"],
+  pmt:()=>[S.chapter>=4?"NDD PMT · 荧光通道（500–550 nm）":"PMT · 荧光通道","探测链带宽 "+fmt(S.B,2)+" MHz → τ_det = "+fmt(D.tauDet,3)+" µs。"],
+  pmt2:()=>["NDD PMT · SHG 通道（"+fmt(S.shgC-10,0)+"–"+fmt(S.shgC+10,0)+" nm）","窄带滤光片只放行 λ/2 附近：光谱鉴别。"],
+  daq:()=>["采集卡 DAQ","驱动振镜、按像素时钟同时采集所有通道（第 5 章起包括锁相输出 X 与 Y）。"],
+  objective:()=>["物镜 NA "+fmt(S.NA,2),"聚焦激发光，收集后向信号。w₀ = 0.433λ/NA_eff = "+fmt(D.w0,2)+" µm。"],
+  sample:()=>["样品 · "+PRESETS[S.preset].label,"焦面 z_f = "+fmt(S.zf,0)+" µm。"],
+  condenser:()=>[S.chapter>=5?"前向聚光镜（翻转到 SRS 光电二极管）":"前向聚光镜","收集透射光。拿掉它：前向几乎收不到光。"],
+  sfilter:()=>["1040 nm 截止滤光片（OD≥6）","只让泵浦到达光电二极管。拿掉它：被调制的 Stokes 自己打到探测器上，锁相看到的“信号”比 SRS 大上万倍，直接过载。"],
+  fpmt:()=>["前向 PMT · SHG","收集透射方向的 SHG。"],
+  pd:()=>["大面积光电二极管 + 调谐放大器","测透射的泵浦（I_DC ≈ "+(D.srs?fmt(D.srs.Idc*1e3,1):"—")+" mA）。PMT 承受不了这么强的光；SRS 是叠在这个巨大直流上的 10⁻⁴ 级小变化。"],
+  lockin:()=>["锁相放大器（I/Q 解调）","只看 f_mod 处、与参考同频的分量，输出同相 X 与正交 Y。"+(S.removed.lockin?"现在没装：采集卡直接读光电二极管的直流。":"")],
+};
+function compVisible(c){ if(c.ch && S.chapter<c.ch) return false; if(c.maxch && S.chapter>c.maxch) return false; if(c.only2P && !D.two) return false; return true; }
+let hover=null, tAnim=0;
+function rr(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
+const FNT=(ts,px,fam)=>`${ts*px}px ${fam}`;
+function drawOptics(){
+  const cv=$("optics"), c=cv.getContext("2d"), W=1000, H=440;
+  c.setTransform(cv.width/W,0,0,cv.height/H,0,0); c.clearRect(0,0,W,H);
+  const EXC=tok(D.two?"--exc2":"--exc1"), STO=tok("--sto"), FL=tok("--fl"), SH=tok("--shg"), LINE=tok("--line"), MUTED=tok("--muted"), GOLD=tok("--gold"), BAD=tok("--bad");
+  const fUI=tok("--f-ui"), fD=tok("--f-data"), ch5=S.chapter>=5;
+  c.fillStyle="#1a2335"; for(let x=10;x<W;x+=25) for(let y=10;y<H;y+=25) c.fillRect(x,y,1.6,1.6);
+  const y0=150, N=S.N, row=Math.floor(scan.k/N), cs=scan.k%N, col=(S.bidir&&row%2===1)?N-1-cs:cs;
+  const u = S.removed.galvo? 0 : ((col+.5)/N-.5)*2*(S.FOV/150), th=u*0.18;
+  const Mshown = S.removed.expander?1:S.M, beamHalf=Math.min(16,2+1.4*Mshown);
+  const path=[[96,y0],[333,y0]];
+  if(!S.removed.relay){ const h=Math.tan(th)*(436-333); path.push([436,y0+h],[566,y0+h],[766,y0+h*0.25],[766,212]); }
+  else { const h=Math.tan(th)*(766-333); path.push([766,y0+h],[766+h*0.9,212]); }
+  const bfpX=path[path.length-1][0];
+  const stroke=(pts,col,wd,dash,off=0)=>{ c.strokeStyle=col; c.lineWidth=wd; if(dash){ c.setLineDash(dash); c.lineDashOffset=-tAnim*0.06; } c.beginPath(); pts.forEach((p,i)=>i?c.lineTo(p[0],p[1]+off):c.moveTo(p[0],p[1]+off)); c.stroke(); c.setLineDash([]); };
+  c.lineCap="round"; c.globalAlpha=.18; stroke(path,EXC,10); c.globalAlpha=1;
+  stroke(path,EXC,2.2,(D.two&&S.pulsed)?[3,9]:null);
+  if(ch5){ // Stokes arm: laser → EOM → delay → combiner, then co-propagating
+    const on = !S.removed.eom;
+    const arm=[[40,178],[40,270],[159,270],[159,150]];
+    stroke(arm,STO,2.2, on?[10,8]:[3,9]);
+    stroke(path.slice(1).concat([]).map(p=>p), STO, 1.4, [3,9], 3);
+    stroke([[159,150],[333,150]],STO,1.4,[3,9],3);
+  }
+  const pass=Math.abs(bfpX-766)<26;
+  c.fillStyle=EXC; c.globalAlpha=pass?.35:.08; c.beginPath(); c.moveTo(766-beamHalf*Math.min(1,D.beta),270); c.lineTo(766+beamHalf*Math.min(1,D.beta),270); c.lineTo(767.5,313); c.lineTo(764.5,313); c.closePath(); c.fill(); c.globalAlpha=1;
+  const back=!S.removed.dichroic, hasSH = S.chapter>=4 && D.two;
+  c.lineWidth=2; c.strokeStyle=FL; c.beginPath(); c.moveTo(772,300); c.lineTo(772, back? 46 : 150); c.stroke();
+  if(hasSH){ c.strokeStyle=SH; c.beginPath(); c.moveTo(760,300); c.lineTo(760, back? (S.removed.split? 46 : 73) : 150); if(back&&!S.removed.split) c.lineTo(720,73); c.stroke(); }
+  if(S.chapter===4 && hasSH){ c.strokeStyle=SH; c.globalAlpha=S.removed.condenser?.4:1; c.beginPath(); c.moveTo(766,326); c.lineTo(766,S.removed.condenser?350:392); c.stroke(); c.globalAlpha=1; }
+  if(ch5){ // transmitted pump (+Stokes if the filter is out) → PD → lock-in → DAQ
+    stroke([[766,326],[766,S.removed.condenser?346:392]],EXC,2.2,[3,9]);
+    if(S.removed.sfilter||S.removed.condenser) {} else {}
+    stroke([[770,326],[770,S.removed.sfilter?392:370]],STO,1.4,[3,9]);
+    c.strokeStyle=MUTED; c.lineWidth=1; c.setLineDash([4,4]);
+    c.beginPath(); c.moveTo(804,411); c.lineTo(840,411); c.stroke();
+    c.beginPath(); c.moveTo(80,290); c.lineTo(80,320); c.lineTo(690,320); c.lineTo(690,436); c.lineTo(895,436); c.lineTo(895,430); c.stroke();
+    c.beginPath(); c.moveTo(950,411); c.lineTo(984,411); c.lineTo(984,27); c.lineTo(970,27); c.stroke(); c.setLineDash([]);
+    c.fillStyle=MUTED; c.font=FNT(TSo,10.5,fD); c.fillText("参考 f_mod → 锁相",232,314);
+  }
+  if(S.removed.filter){ c.strokeStyle=EXC; c.setLineDash([5,4]); c.beginPath(); c.moveTo(750,150); c.lineTo(750,46); c.stroke(); c.setLineDash([]); }
+  c.strokeStyle=MUTED; c.lineWidth=1; c.setLineDash([4,4]);
+  c.beginPath(); c.moveTo(804,27); c.lineTo(860,27); c.stroke();
+  c.beginPath(); c.moveTo(915,46); c.lineTo(915,52); c.lineTo(333,52); c.lineTo(333,118); c.stroke(); c.setLineDash([]);
+  c.fillStyle=MUTED; c.font=FNT(TSo,11,fD); c.textAlign="left"; c.fillText("像素时钟 / 振镜驱动（同步）",344,46);
+  for(const comp of COMP){ if(!compVisible(comp)) continue;
+    const removed=S.removed[comp.id]===true, hov=hover===comp.id;
+    c.strokeStyle= removed? BAD : (hov? GOLD : LINE); c.lineWidth=hov?1.6:1.1; if(removed) c.setLineDash([5,4]);
+    rr(c,comp.x,comp.y,comp.w,comp.h,6); c.fillStyle= removed? "rgba(239,106,106,.06)" : "rgba(19,26,41,.88)"; c.fill(); c.stroke(); c.setLineDash([]);
+    drawGlyph(c,comp,removed,{EXC,STO,FL,SH,FG:tok("--fg"),MUTED,BAD,fUI,fD}); }
+  c.strokeStyle=MUTED; c.lineWidth=1; c.beginPath(); c.moveTo(740,212); c.lineTo(792,212); c.stroke();
+  c.fillStyle= pass? EXC : BAD; c.beginPath(); c.ellipse(bfpX,212,Math.max(3,beamHalf*0.9),3,0,0,7); c.fill();
+  c.fillStyle=MUTED; c.font=FNT(TSo,11,fD); c.textAlign="right"; c.fillText("后焦面 BFP",724,212+4*TSo);
+  if(S.removed.relay){ c.fillStyle=BAD; c.fillText("光束在后瞳上平移",724,212+18*TSo); }
+  c.textAlign="left";
+}
+function drawGlyph(c,comp,removed,K){
+  const {x,y,w,h}=comp, cx=x+w/2, cy=y+h/2, ui=FNT(TSo,12,K.fUI), dd=FNT(TSo,10.5,K.fD), RM=K.BAD;
+  const off = S.chapter>=5 && (comp.id==="eom"||comp.id==="lockin") ? "未安装" : "已拔掉";
+  c.font=ui; c.textAlign="center"; c.fillStyle= removed? RM : K.FG; c.strokeStyle=K.MUTED; c.lineWidth=1.2;
+  const below=(t,line=0,small=false)=>{ c.font=small?dd:ui; c.fillStyle= small? K.MUTED : (removed?RM:K.FG); c.fillText(t,cx,y+h+(13+13*line)*TSo); c.font=ui; };
+  const right=(t,dy=0,small=false)=>{ c.textAlign="left"; c.font=small?dd:ui; c.fillStyle= small?K.MUTED:(removed?RM:K.FG); c.fillText(t,x+w+8,cy+dy); c.textAlign="center"; c.font=ui; };
+  switch(comp.id){
+    case "laser": c.fillStyle=K.EXC; c.fillRect(x+10,cy-6,w-20,12); if(S.chapter>=5){ c.fillStyle=K.STO; c.fillRect(x+10,y+h-12,w-20,6); }
+      c.fillStyle=K.FG; c.fillText(S.chapter>=5?"双输出 fs":(D.two?"fs 激光":"CW 激光"),cx,y-6); c.font=dd; c.fillStyle=K.MUTED; c.textAlign="left"; c.fillText(D.two? fmt(S.lam,0)+(S.chapter>=5?"/1040":"")+" nm":"488 nm",x+2,y+h+13*TSo); break;
+    case "hwp": c.fillStyle="rgba(242,204,107,.25)"; c.fillRect(x+10,y+6,8,h-12); c.fillStyle=removed?RM:K.FG; c.fillText(removed?off:"λ/2",cx,y-6); break;
+    case "compressor": c.beginPath(); c.moveTo(x+8,y+40);c.lineTo(x+19,y+10);c.lineTo(x+30,y+40);c.closePath(); c.moveTo(x+30,y+10);c.lineTo(x+41,y+40);c.lineTo(x+52,y+10);c.closePath(); c.stroke(); below(removed?off:"预补偿"); break;
+    case "combiner": c.beginPath(); c.moveTo(x+6,y+h-6); c.lineTo(x+w-6,y+6); c.stroke(); c.fillStyle=K.FG; below("合束"); break;
+    case "rod": c.fillStyle="rgba(140,180,220,.25)"; c.fillRect(x+4,y+8,w-8,h-16); c.fillStyle=removed?RM:K.FG; c.fillText(removed?off:"啁啾",cx+4,y-6); break;
+    case "eom": c.strokeRect(x+10,y+12,w-20,h-24); below(removed?off:"EOM"); break;
+    case "delayline": c.beginPath(); c.moveTo(x+w-10,y+8); c.lineTo(x+w-22,cy); c.lineTo(x+w-10,y+h-8); c.stroke(); below(removed?off:"延时线"); break;
+    case "expander": c.beginPath(); c.ellipse(x+20,cy,4,12,0,0,7); c.ellipse(x+64,cy,6,30,0,0,7); c.stroke(); below(removed?off:"扩束器"); if(!removed) below("×"+fmt(S.M,1),1,true); break;
+    case "galvo": c.beginPath(); c.moveTo(cx-13,cy+13); c.lineTo(cx+13,cy-13); c.stroke(); c.beginPath(); c.arc(cx,cy,3,0,7); c.stroke(); below(removed?off:"XY 振镜"); break;
+    case "relay": c.beginPath(); c.ellipse(x+60,cy,7,40,0,0,7); c.ellipse(x+190,cy,7,44,0,0,7); c.stroke();
+      c.font=dd; c.fillStyle=K.MUTED; c.fillText("扫描镜",x+60,y+12*TSo); c.fillText("筒镜",x+190,y+12*TSo); below(removed?"4f 中继 · "+off:"4f 中继（共轭面）"); break;
+    case "dichroic": c.beginPath(); c.moveTo(x+8,y+8); c.lineTo(x+w-8,y+h-8); c.stroke(); right(removed?off:"二向色镜",4); break;
+    case "filter": c.fillStyle="rgba(93,220,145,.25)"; c.fillRect(x+5,y+4,w-10,h-8); right(removed?"滤光片 · "+off:"短通滤光片",5); break;
+    case "split": c.beginPath(); c.moveTo(x+6,y+h-4); c.lineTo(x+w-6,y+4); c.stroke(); right(removed?"分色镜 · "+off:"分色镜",5); break;
+    case "pmt": c.fillStyle=K.FG; c.fillText(S.chapter>=4?"PMT 荧光":(D.two?"NDD PMT":"PMT"),cx,cy+4); break;
+    case "pmt2": c.fillStyle=K.FG; c.fillText("PMT SHG",cx,cy+4); c.font=dd; c.fillStyle=K.MUTED; c.fillText(fmt(S.shgC,0)+"/20 nm",cx,y+h+12*TSo); break;
+    case "daq": c.fillStyle=K.FG; c.fillText("DAQ 采集卡",cx,cy+4); break;
+    case "objective": c.beginPath(); c.moveTo(x+8,y+6); c.lineTo(x+w-8,y+6); c.lineTo(x+w-22,y+h-4); c.lineTo(x+22,y+h-4); c.closePath(); c.stroke(); right("物镜",-4); right("NA "+fmt(S.NA,2),11*TSo,true); break;
+    case "sample": c.fillStyle="rgba(93,220,145,.18)"; c.fillRect(x+4,y+5,w-8,h-10); right("样品",4); break;
+    case "condenser": c.beginPath(); c.moveTo(x+14,y+4); c.lineTo(x+w-14,y+4); c.lineTo(x+w-6,y+h-4); c.lineTo(x+6,y+h-4); c.closePath(); c.stroke(); right(removed?"聚光镜 · "+off:"前向聚光镜",4); break;
+    case "sfilter": c.fillStyle="rgba(240,138,75,.3)"; c.fillRect(x+5,y+3,w-10,h-6); right(removed?"1040 截止 · "+off:"1040 截止",4); break;
+    case "fpmt": c.fillStyle=K.FG; c.fillText("前向 PMT",cx,cy+4); break;
+    case "pd": c.fillStyle=K.FG; c.fillText("光电二极管",cx,cy+4); break;
+    case "lockin": c.fillStyle=removed?RM:K.FG; c.fillText(removed?"锁相 · "+off:"锁相 I/Q",cx,cy+4); break;
+  }
+  c.textAlign="left";
+}
+function hitComp(ev){
+  const cv=$("optics"), r=cv.getBoundingClientRect(); const x=(ev.clientX-r.left)/r.width*1000, y=(ev.clientY-r.top)/r.height*440;
+  for(let i=COMP.length-1;i>=0;i--){ const c=COMP[i]; if(!compVisible(c)) continue; if(x>=c.x&&x<=c.x+c.w&&y>=c.y&&y<=c.y+c.h) return c; } return null;
+}
+function showInfo(c){
+  const el=$("info"); if(!c){ el.innerHTML="把鼠标移到组件上，看它解决什么问题、拿掉会怎样。"; return; }
+  const [t,body]=INFO[c.id](); const rm=S.removed[c.id];
+  el.innerHTML=`<b>${t}</b>${c.rm? (rm?' · <span class="rm">未在光路中，点击装上</span>':' · 点击拔掉') : ''}<br>${body}`;
+}
+$("optics").addEventListener("mousemove",ev=>{ const c=hitComp(ev); hover=c?c.id:null; $("optics").style.cursor= c&&c.rm? "pointer":"default"; showInfo(c); });
+$("optics").addEventListener("mouseleave",()=>{hover=null; showInfo(null);});
+$("optics").addEventListener("click",ev=>{ const c=hitComp(ev); if(c&&c.rm){ S.removed[c.id]=!S.removed[c.id]; onChange("removed"); showInfo(c);} });
+
+/* ============================================================ 12. side view */
+function drawSide(){
+  const cv=$("side"), c=cv.getContext("2d"), W=1000, H=400; c.setTransform(cv.width/W,0,0,cv.height/H,0,0); c.clearRect(0,0,W,H);
+  const MUTED=tok("--muted"), FG=tok("--fg"), LINE=tok("--line"), FL=tok("--fl"), GOLD=tok("--gold"), fUI=tok("--f-ui"), fD=tok("--f-data");
+  const mx=20,my=34,mw=420,mh=330, nz=110, nx=140, zr=5*D.zR, xr=7*D.w0;
+  const im=c.createImageData(nx,nz);
+  for(let j=0;j<nz;j++){ const z=(j/(nz-1)*2-1)*zr, w=D.w0*Math.sqrt(1+(z/D.zR)**2);
+    for(let i=0;i<nx;i++){ const x=(i/(nx-1)*2-1)*xr; let I=(D.w0/w)**2*Math.exp(-2*x*x/(w*w)); if(D.two) I=I*I;
+      const col=inferno(Math.pow(I,0.45)), o=(j*nx+i)*4; im.data[o]=col[0];im.data[o+1]=col[1];im.data[o+2]=col[2];im.data[o+3]=255; } }
+  const off=document.createElement("canvas"); off.width=nx; off.height=nz; off.getContext("2d").putImageData(im,0,0);
+  c.imageSmoothingEnabled=true; c.drawImage(off,mx,my,mw,mh);
+  c.fillStyle=FG; c.font=FNT(TSs,13,fUI); c.fillText(S.chapter>=5? "SRS 激发 ∝ I_p·I_S（近似 I²）" : D.two? "双光子激发率 ∝ I²(x,z)" : "单光子激发率 ∝ I(x,z)", mx, 22);
+  c.fillStyle=MUTED; c.font=FNT(TSs,11,fD); c.fillText(`x: ±${fmt(xr,1)} µm   z: ±${fmt(zr,1)} µm (=±5 z_R)`, mx, my+mh+18*Math.min(TSs,1.3));
+  const bx=500, by=34, bw=470, bh=330, Z=50, zToY=z=>by+(z+Z)/(2*Z)*bh;
+  c.fillStyle=FG; c.font=FNT(TSs,13,fUI); c.fillText("每一层的总信号 ∫S dA（相对值）", bx, 22);
+  c.strokeStyle=LINE; c.lineWidth=1; c.strokeRect(bx,by,bw,bh);
+  c.strokeStyle=MUTED; c.setLineDash([4,4]); c.beginPath();
+  for(let k=0;k<=200;k++){ const z=-Z+2*Z*k/200, dz=z-S.zf, w=D.w0*Math.sqrt(1+(dz/D.zR)**2), v=D.two?(D.w0/w)**2:1; const X=bx+8+v*(bw-60); k?c.lineTo(X,zToY(z)):c.moveTo(X,zToY(z)); }
+  c.stroke(); c.setLineDash([]);
+  ZL.forEach(z=>{ const t=layerTerm(D,z), y=zToY(z), lb=t.weight*(bw-60), lh=t.haze*(bw-60);
+    c.fillStyle=FL; c.globalAlpha=.85; c.fillRect(bx+8,y-6,Math.max(1,lb),12);
+    if(t.haze>0){ c.fillStyle=MUTED; c.globalAlpha=.55; c.fillRect(bx+8+lb,y-6,lh,12); }
+    c.globalAlpha=1; c.fillStyle=MUTED; c.font=FNT(TSs,11,fD); c.textAlign="right"; c.fillText((z>0?"+":"")+z, bx-6, y+4); c.textAlign="left"; });
+  c.strokeStyle=GOLD; c.lineWidth=1.5; c.beginPath(); c.moveTo(bx,zToY(S.zf)); c.lineTo(bx+bw,zToY(S.zf)); c.stroke();
+  c.fillStyle=GOLD; c.font=FNT(TSs,11,fD); c.textAlign="right"; c.fillText("焦面 z_f", bx+bw-4, zToY(S.zf)-5); c.textAlign="left";
+  c.fillStyle=MUTED; c.fillText(`z (µm) ↓  组织表面在 z = ${PRESETS[S.preset].zSurf}`, bx, by+bh+18*Math.min(TSs,1.3));
+  $("sideLegend").innerHTML = `<span><span class="sw" style="background:var(--fl)"></span>弹道激发（含 l_s 衰减）</span>`+
+    (D.two?"":`<span><span class="sw" style="background:var(--muted)"></span>散射激发光产生的弥散信号</span>`)+
+    `<span><span class="sw" style="border:1px dashed var(--muted)"></span>理想曲线（不含散射）：${D.two?"∝ 1/(1+(z/z_R)²)":"恒为 1：没有光学切片"}</span>`;
+}
+
+/* ============================================================ 13. spectrum panel (emission ≤ ch4, Raman ≥ ch5) */
+function drawSpec(){
+  const panel=$("specPanel"); panel.hidden = S.chapter<3; if(panel.hidden) return;
+  const cv=$("spec"), c=cv.getContext("2d"), W=1000, H=300; c.setTransform(cv.width/W,0,0,cv.height/H,0,0); c.clearRect(0,0,W,H);
+  const MUTED=tok("--muted"), LINE=tok("--line"), FL=tok("--fl"), SH=tok("--shg"), SR=tok("--srs"), GOLD=tok("--gold"), EXC=tok(D.two?"--exc2":"--exc1"), fD=tok("--f-data"), fUI=tok("--f-ui"), PRC=tok("--exc1");
+  const x0=50, x1=960, y0=24, y1=240;
+  if(S.chapter>=5 && D.srs){
+    $("specTitle").textContent="拉曼谱（C–H 伸缩区）与激发带宽";
+    const R=D.srs, X=w=>x0+(w-RAM_W0)/(RAM_W1-RAM_W0)*(x1-x0), Y=v=>y1-v*(y1-y0);
+    const lo=Math.max(RAM_W0,R.wc-1.2*R.gam), hi=Math.min(RAM_W1,R.wc+1.2*R.gam);
+    c.fillStyle=GOLD; c.globalAlpha=.12; c.beginPath(); c.moveTo(X(RAM_W0),y1); for(let w=RAM_W0;w<=RAM_W1;w+=2) c.lineTo(X(w),Y(0.95*gauss(w,R.wc,R.gam))); c.lineTo(X(RAM_W1),y1); c.closePath(); c.fill(); c.globalAlpha=1;
+    c.strokeStyle=GOLD; c.lineWidth=1.5; c.setLineDash([5,4]); c.beginPath(); for(let w=RAM_W0;w<=RAM_W1;w+=2){ const p=[X(w),Y(0.95*gauss(w,R.wc,R.gam))]; w===RAM_W0?c.moveTo(...p):c.lineTo(...p);} c.stroke(); c.setLineDash([]);
+    const curve=(fn,col)=>{ let m=0; for(let w=RAM_W0;w<=RAM_W1;w++) m=Math.max(m,fn(w)); c.strokeStyle=col; c.lineWidth=2.2; c.beginPath(); for(let w=RAM_W0;w<=RAM_W1;w++){ const p=[X(w),Y(fn(w)/m*0.85)]; w===RAM_W0?c.moveTo(...p):c.lineTo(...p);} c.stroke(); };
+    curve(ramLipid,SR); curve(ramProt,PRC);
+    c.strokeStyle=LINE; c.beginPath(); c.moveTo(x0,y1); c.lineTo(x1,y1); c.stroke();
+    c.fillStyle=MUTED; c.font=FNT(TSp,11,fD); c.textAlign="center";
+    for(let w=2800;w<=3000;w+=50){ c.fillText(String(w),X(w),y1+16*Math.min(TSp,1.4)); c.beginPath(); c.moveTo(X(w),y1); c.lineTo(X(w),y1+4); c.stroke(); }
+    c.fillStyle=GOLD; c.fillText(`Ω_c = ${fmt(R.wc,0)}`, clamp(X(R.wc),x0+40,x1-40), y0+4); c.textAlign="left";
+    c.fillStyle=MUTED; c.fillText("拉曼位移 (cm⁻¹)", x0, H-8);
+    $("specLegend").innerHTML=`<span><span class="sw" style="background:var(--srs)"></span>脂（CH₂，~2850，示例谱）</span><span><span class="sw" style="background:var(--exc1)"></span>蛋白（CH₃，~2935，示例谱）</span>`+
+      `<span><span class="sw" style="border:1px dashed var(--gold)"></span>激发带宽 Γ = ${fmt(R.gam,0)} cm⁻¹${R.chirp?"（光谱聚焦）":"（变换极限）"}</span><span>脂 K = ${fmt(R.KL,2)} · 蛋白 K = ${fmt(R.KP,2)}</span>`;
+    return;
+  }
+  $("specTitle").textContent="发射光谱与探测通道";
+  const X=l=>x0+(l-SPEC_L0)/(SPEC_L1-SPEC_L0)*(x1-x0), Y=v=>y1-v*(y1-y0);
+  const bandRect=(lo,hi,col,label)=>{ c.fillStyle=col; c.globalAlpha=.16; c.fillRect(X(lo),y0,X(hi)-X(lo),y1-y0); c.globalAlpha=1;
+    c.strokeStyle=col; c.lineWidth=1; c.strokeRect(X(lo),y0,X(hi)-X(lo),y1-y0); c.fillStyle=col; c.font=FNT(TSp,11,fD); c.textAlign="center"; c.fillText(label,(X(lo)+X(hi))/2,y0-6); c.textAlign="left"; };
+  bandRect(FL_BAND[0],FL_BAND[1],FL,"荧光通道");
+  if(S.chapter>=4) bandRect(S.shgC-10,S.shgC+10,SH,"SHG 通道");
+  const curve=(arr,col,scale,dash)=>{ let m=0; for(let i=0;i<NS;i++) m=Math.max(m,arr[i]); c.strokeStyle=col; c.lineWidth=2; if(dash) c.setLineDash([5,4]);
+    c.beginPath(); for(let i=0;i<NS;i++){ const px=X(SPEC_L0+i), py=Y(arr[i]/m*scale); i?c.lineTo(px,py):c.moveTo(px,py);} c.stroke(); c.setLineDash([]); };
+  curve(dyeEm,FL,0.9,false);
+  if(HAS.C && HAS.C.some(Boolean)) curve(afEm,MUTED,0.3,true);
+  if(D.shl && S.chapter>=4){ const l2=S.lam/2; if(l2>=SPEC_L0&&l2<=SPEC_L1) curve(D.shl.arr,SH,1.0,false); else { c.fillStyle=SH; c.font=FNT(TSp,12,fUI); c.fillText(`SHG ${fmt(l2,0)} nm 在显示范围外`, x0+8, y0+18*TSp); } }
+  const lx = D.two? S.lam : 488;
+  if(lx<=SPEC_L1){ c.strokeStyle=EXC; c.lineWidth=2; c.beginPath(); c.moveTo(X(lx),y0); c.lineTo(X(lx),y1); c.stroke(); }
+  else { c.fillStyle=EXC; c.font=FNT(TSp,12,fUI); c.textAlign="right"; c.fillText(`激光 ${fmt(lx,0)} nm →`, x1, y0+18*TSp); c.textAlign="left"; }
+  c.strokeStyle=LINE; c.beginPath(); c.moveTo(x0,y1); c.lineTo(x1,y1); c.stroke();
+  c.fillStyle=MUTED; c.font=FNT(TSp,11,fD); c.textAlign="center";
+  for(let l=400;l<=700;l+=50){ c.fillText(String(l),X(l),y1+16*Math.min(TSp,1.4)); c.beginPath(); c.moveTo(X(l),y1); c.lineTo(X(l),y1+4); c.stroke(); }
+  c.textAlign="left"; c.fillText("波长 (nm)", x0, H-8);
+  $("specLegend").innerHTML=`<span><span class="sw" style="background:var(--fl)"></span>染料发射（示例谱）</span>`+
+    ((HAS.C && HAS.C.some(Boolean))?`<span><span class="sw" style="border:1px dashed var(--muted)"></span>胶原自发荧光（宽带，弱）</span>`:"")+
+    (S.chapter>=4&&D.two?`<span><span class="sw" style="background:var(--shg)"></span>SHG：λ/2 窄线，FWHM ${fmt(D.shl.fw,1)} nm</span>`:"")+`<span>形状各自归一</span>`;
+}
+
+/* ============================================================ 14. noise-spectrum panel (ch5) */
+function drawNoise(){
+  const panel=$("noisePanel"); panel.hidden = S.chapter<5 || !D.srs; if(panel.hidden) return;
+  const cv=$("noise"), c=cv.getContext("2d"), W=1000, H=340; c.setTransform(cv.width/W,0,0,cv.height/H,0,0); c.clearRect(0,0,W,H);
+  const R=D.srs, MUTED=tok("--muted"), FG=tok("--fg"), LINE=tok("--line"), GOLD=tok("--gold"), SR=tok("--srs"), BAD=tok("--bad"), EXC=tok("--exc1"), fD=tok("--f-data"), fUI=tok("--f-ui");
+  const x0=70, x1=970, y0=20, y1=280, f0=1, f1=8, d0=-175, d1=-85;
+  const X=lf=>x0+(lf-f0)/(f1-f0)*(x1-x0), Y=d=>y1-(clamp(d,d0,d1)-d0)/(d1-d0)*(y1-y0);
+  c.strokeStyle=LINE; c.lineWidth=1; c.strokeRect(x0,y0,x1-x0,y1-y0);
+  c.font=FNT(TSn,11,fD); c.fillStyle=MUTED; c.textAlign="center";
+  const fl=["10 Hz","100 Hz","1 kHz","10 kHz","100 kHz","1 MHz","10 MHz","100 MHz"];
+  for(let k=1;k<=8;k++){ c.beginPath(); c.moveTo(X(k),y0); c.lineTo(X(k),y1); c.strokeStyle="rgba(38,49,74,.6)"; c.stroke(); c.fillText(fl[k-1],X(k),y1+15*Math.min(TSn,1.4)); }
+  c.textAlign="right"; for(let d=-170;d<=-90;d+=20){ c.fillText(String(d),x0-6,Y(d)+4); c.beginPath(); c.moveTo(x0,Y(d)); c.lineTo(x1,Y(d)); c.strokeStyle="rgba(38,49,74,.6)"; c.stroke(); }
+  c.textAlign="left";
+  // DC detection band
+  if(R.mode==="dc"){ const fa=Math.log10(1e6/D.frameT), fb=Math.log10(R.Bpix); c.fillStyle=BAD; c.globalAlpha=.12; c.fillRect(X(fa),y0,X(fb)-X(fa),y1-y0); c.globalAlpha=1;
+    c.fillStyle=BAD; c.font=FNT(TSn,11.5,fUI); c.fillText("直流探测积分的整个频带", X(fa)+6, y0+16*TSn); }
+  const plot=(fn,col,wd,dash)=>{ c.strokeStyle=col; c.lineWidth=wd; if(dash) c.setLineDash(dash); c.beginPath(); for(let k=0;k<=300;k++){ const lf=f0+(f1-f0)*k/300, p=[X(lf),Y(fn(10**lf))]; k?c.lineTo(...p):c.moveTo(...p);} c.stroke(); c.setLineDash([]); };
+  plot(f=>db(RIN(f,R.lt)),EXC,2.2);
+  plot(()=>db(R.shot),FG,1.4,[6,4]);
+  plot(()=>db(R.amp),MUTED,1.2,[2,4]);
+  plot(f=>db(RIN(f,R.lt)+R.shot+R.amp),FG,1);
+  // level a lipid droplet needs for SNR = 1 in one pixel
+  const need = db((R.m*R.gain*R.KL)**2/R.Bpix);
+  if(isFinite(need)){ c.strokeStyle=SR; c.lineWidth=1.6; c.setLineDash([8,5]); c.beginPath(); c.moveTo(x0,Y(need)); c.lineTo(x1,Y(need)); c.stroke(); c.setLineDash([]);
+    c.fillStyle=SR; c.font=FNT(TSn,11.5,fUI); c.textAlign="right"; c.fillText("脂滴单像素 SNR = 1 所需噪声水平", x1-6, Y(need)-6); c.textAlign="left"; }
+  if(R.mode!=="dc"){ const lx=X(Math.log10(S.fmod)); c.strokeStyle=GOLD; c.lineWidth=2; c.beginPath(); c.moveTo(lx,y0); c.lineTo(lx,y1); c.stroke();
+    c.fillStyle=GOLD; c.font=FNT(TSn,11.5,fUI); c.fillText("f_mod", lx+5, y0+16*TSn); }
+  c.fillStyle=MUTED; c.font=FNT(TSn,11,fD); c.fillText("dB/Hz（相对 I_DC²）", 4, 14);
+  $("noiseLegend").innerHTML=`<span><span class="sw" style="background:var(--exc1)"></span>激光 RIN（${LASERS[R.lt].label}）</span><span><span class="sw" style="border:1px dashed var(--fg)"></span>散粒噪声 2e/I_DC</span><span><span class="sw" style="border:1px dotted var(--muted)"></span>放大器噪声</span><span><span class="sw" style="border:1px dashed var(--srs)"></span>噪声低于这条线，单像素就能看见脂滴</span>`;
+}
+
+/* ============================================================ 15. power sweep */
+let sweeps={};
+function sweepChannel(){ const v=S.view; if(v==="merge") return "fl"; if(v==="srsR") return "srsX"; return EXP[v]? v : "fl"; }
+function runSweep(){
+  const ch = sweepChannel(), srs=isSRS(ch);
+  const cv=$("sweep"), c=cv.getContext("2d"), W=600,H=340; c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,W,H);
+  const MUTED=tok("--muted"), FG=tok("--fg"), GOLD=tok("--gold"), LINE=tok("--line"), fD=tok("--f-data");
+  let best=0, bi=0; const Arr=EXP[ch]; for(let i=0;i<Arr.length;i++){ const v=srs?Math.abs(Arr[i]):Arr[i]; if(v>best){best=v;bi=i;} }
+  const row=Math.floor(bi/S.N), col=bi%S.N, E=pixelE(D,row,col);
+  const key = srs? "Ps" : (D.two? "P2":"P1"), saved=S[key], P0=saved, r=mulberry32(99), pts=[];
+  for(let k=0;k<7;k++){ const P=P0*Math.pow(2,(k-3)/1.5); S[key]=P; const Dk=derive();
+    let v; if(srs){ const [x,y]=srsXY(Dk.srs,E); v=Math.hypot(x,y)+Dk.srs.sigma*1e6/4*Math.abs(gaussRnd(r)); } else { v=poisson(muOf(Dk.coef[ch],E)*16,r)/16; }
+    pts.push([P, Math.max(v,1/16)]); }
+  S[key]=saved;
+  const lx=pts.map(p=>Math.log10(p[0])), ly=pts.map(p=>Math.log10(p[1]));
+  const mxv=lx.reduce((a,b)=>a+b)/7, myv=ly.reduce((a,b)=>a+b)/7; let sxy=0,sxx=0; lx.forEach((v,i)=>{sxy+=(v-mxv)*(ly[i]-myv); sxx+=(v-mxv)**2;}); const slope=sxy/sxx;
+  const xa=Math.min(...lx)-.1, xb=Math.max(...lx)+.1, ya=Math.min(...ly)-.3, yb=Math.max(...ly)+.3;
+  const PX=v=>60+(v-xa)/(xb-xa)*(W-80), PY=v=>H-40-(v-ya)/(yb-ya)*(H-70);
+  c.strokeStyle=LINE; c.strokeRect(60,30,W-80,H-70);
+  c.strokeStyle=GOLD; c.lineWidth=2; c.beginPath(); c.moveTo(PX(xa),PY(myv+slope*(xa-mxv))); c.lineTo(PX(xb),PY(myv+slope*(xb-mxv))); c.stroke();
+  c.fillStyle=FG; pts.forEach((p,i)=>{ c.beginPath(); c.arc(PX(lx[i]),PY(ly[i]),5,0,7); c.fill(); });
+  c.font="22px "+fD; c.fillStyle=GOLD; c.fillText(`斜率 = ${slope.toFixed(2)}`,74,62);
+  c.font="16px "+fD; c.fillStyle=MUTED; c.fillText((srs?"SRS · 扫 Stokes 功率":CH_NAME[ch])+` · P₀ = ${fmt(P0,P0<1?3:1)} mW`,74,86);
+  c.fillText(srs?"log P_S →":"log P →",W-110,H-12); c.save(); c.translate(22,H/2+50); c.rotate(-Math.PI/2); c.fillText(srs?"log |锁相输出| →":"log 光子数 →",0,0); c.restore();
+  sweeps[ch]={slope, P0, two:D.two, chapter:S.chapter, mode:D.srs?D.srs.mode:null}; renderTasks();
+}
+$("sweepBtn").onclick=runSweep;
+
+/* ============================================================ 16. guided tasks */
+const avgPol=()=> polFactor(D.theta-Math.PI/6,S.rho)/polMax(S.rho);
+const srsSeen={dc:false, fiber:false, lipid:false, protein:false, tlLook:false};
+function phaseErr(){ if(!D.srs) return 180; let e=((S.phRef*Math.PI/180 - D.srs.phE)*180/Math.PI)%360; if(e>180) e-=360; if(e<-180) e+=360; return Math.abs(e); }
+function trackSRS(){ if(!D.srs) return; const R=D.srs;
+  if(R.mode==="dc" && S.view.startsWith("srs") && scan.frame>0) srsSeen.dc=true;
+  if(R.mode==="dc" && S.laserType==="fiber") srsSeen.fiber=true;
+  if(R.mode==="ok" && R.chirp && Math.abs(R.wc-2850)<=15 && R.ov>0.5) srsSeen.lipid=true;
+  if(R.mode==="ok" && R.chirp && Math.abs(R.wc-2935)<=15 && R.ov>0.5) srsSeen.protein=true;
+  if(R.mode==="ok" && !R.chirp && R.ov>0.5) srsSeen.tlLook=true; }
+const TASKS={
+  2:[
+    {t:"看一帧图像怎样一个像素一个像素地形成。", why:"单点探测器 + 扫描 = 把空间信息变成时间序列。", ok:()=>scan.frame>=1},
+    {t:"把物镜 NA 降到 0.3 以下。", why:"焦点变大，细节被抹平：w₀ ∝ λ/NA。", ok:()=>D.NAeff<0.3},
+    {t:"默认设置是欠采样的：缩小 FOV 或增加像素数，让像素 ≤ FWHM/2。", why:"奈奎斯特：像素至少比分辨率小一半，否则细节丢失或混叠。", ok:()=>D.pixel<=D.fwhmLat/2},
+    {t:"把驻留时间降到 0.5 µs 以下，关掉自动对比度看看。", why:"每个像素的光子更少，泊松噪声 √N 占比变大。", ok:()=>S.dwell<0.5},
+    {t:"让探测链跟不上：τ_det 大于驻留时间。", why:"一阶低通让信号沿快轴拖尾；双向扫描时拖尾方向逐行反转。", ok:()=>D.tauDet>S.dwell},
+    {t:"打开双向扫描，调“行相位校正”消除隔行锯齿。", why:"振镜比指令滞后，正反两行错位方向相反；软件按滞后量把每行移回去。", ok:()=>S.bidir && S.corr>0 && Math.abs(S.lag-S.corr)<0.06},
+    {t:"拔掉 4f 中继，解释为什么视场四角变暗。", why:"振镜不再与后焦面共轭，光束在后瞳上平移被孔径挡掉。", ok:()=>S.removed.relay},
+    {t:"拔掉扩束器，看 NA_eff 掉到多少。", why:"后瞳欠填充时，物镜的标称 NA 用不上。", ok:()=>S.removed.expander},
+  ],
+  3:[
+    {t:"厚组织、单光子：把焦面移到 z = +20 µm 附近。", why:"侧视图：每一层的总信号都一样——焦外层全部在发光，图像发雾。", ok:()=>!D.two && S.zf>=15 && S.preset==="thick"},
+    {t:"切换到双光子，比较每一层的总信号。", why:"∫I² dA ∝ 1/w²：离焦越远贡献越小，切片来自物理本身。", ok:()=>D.two},
+    {t:"保持平均功率，把激光切成 CW。", why:"脉冲增益 g/(fτ) ≈ 10⁵ 消失，信号降到噪声以下。", ok:()=>D.two && !S.pulsed},
+    {t:"拔掉色散预补偿，再把脉宽调到 50 fs。", why:"短脉冲带宽宽，被 GDD 展宽得更厉害。", ok:()=>D.two && S.removed.compressor && S.tau<70},
+    {t:"运行功率扫描验收测试，确认斜率 ≈ 2。", why:"实验室里验证“确实是双光子信号”的第一项测量。", ok:()=>sweeps.fl && sweeps.fl.two && Math.abs(sweeps.fl.slope-2)<0.3},
+    {t:"把功率加到 100 mW 以上再扫一次：斜率为什么小于 2？", why:"荧光分子被激发饱和；真机上还要排除漂白。", ok:()=>sweeps.fl && sweeps.fl.two && sweeps.fl.P0>=100 && sweeps.fl.slope<1.8},
+    {t:"把激发波长调到 800 nm 以下：荧光为什么变暗？", why:"染料的双光子吸收谱 σ₂(λ) 不是平的。", ok:()=>D.two && S.lam<=800 && S.chapter===3},
+    {t:"把 l_s 降到 100 µm，焦面推到 z ≥ +20 µm，对比 1P 与 2P。", why:"单光子的散射激发光变成弥散背景；双光子只在弹道焦点处激发。", ok:()=>S.ls<=110 && S.zf>=20},
+  ],
+  4:[
+    {t:"切到 SHG 通道或合成视图，找到荧光通道里几乎看不见的胶原纤维。", why:"胶原不发荧光（只有很弱的自发荧光），但它没有中心对称，能产生 SHG。", ok:()=>D.two && (viewsSeen.has("shg")||viewsSeen.has("merge"))},
+    {t:"把激发波长从 920 调到 860 nm：SHG 从通道里消失了吗？", why:"SHG 是 λ/2 的窄线，跟着激发波长走；荧光发射谱不随激发波长移动。", ok:()=>D.two && S.chapter===4 && Math.abs(S.lam/2-S.shgC)>15},
+    {t:"把 SHG 滤光片中心调到新的 λ/2，重新接住信号。", why:"信号跟随 λ/2 移动，就是 SHG 的证据。", ok:()=>D.two && S.chapter===4 && Math.round(S.lam)!==920 && Math.abs(S.lam/2-S.shgC)<=6},
+    {t:"换成鼠尾肌腱样品，转动偏振，找一个让纤维明显变暗的角度。", why:"SHG 依赖偏振与纤维方向的夹角 Δ；荧光基本不随偏振变化。", ok:()=>D.two && S.preset==="tendon" && avgPol()<0.5},
+    {t:"切到前向通道，对比前向与后向 SHG。", why:"胶原 SHG 主要向前；后向信号多数是被组织散射回来的前向光。", ok:()=>D.two && viewsSeen.has("fwd")},
+    {t:"制造串扰：把激发调到 1000 nm 以上，看荧光通道里出现了什么。", why:"λ/2 落进 500–550 nm，SHG 混入荧光通道——多通道系统要先排查滤光片。", ok:()=>D.two && S.chapter===4 && S.lam/2>=FL_BAND[0] && S.lam/2<=FL_BAND[1]},
+    {t:"验收：对荧光与 SHG 通道各跑一次功率扫描。", why:"两者斜率都 ≈ 2，功率依赖区分不了它们；要靠光谱、偏振和发射方向。", ok:()=>sweeps.fl && sweeps.shg && sweeps.fl.chapter>=4 && Math.abs(sweeps.shg.slope-2)<0.3},
+  ],
+  5:[
+    {t:"现状：泵浦与 Stokes 已合束，光电二极管直接测透射光。看 SRS 图像——这是化学成分吗？", why:"你看到的是细胞边缘的透射变化（~10⁻³）和激光强度噪声；脂滴的 SRS 只有 ~10⁻⁴，被淹没了。", ok:()=>srsSeen.dc},
+    {t:"把激光换成高 RIN 的光纤激光，再看直流图像和噪声谱。", why:"直流探测把 1/f 低频噪声全部积分进来；噪声谱上红色频带整个都在“所需噪声线”之上。", ok:()=>srsSeen.fiber},
+    {t:"装上 EOM（调制 Stokes）和锁相放大器。", why:"把信号搬到 f_mod：只读与参考同频的分量，直流的大透射与低频噪声都被拒之门外。", ok:()=>D.srs && D.srs.mode==="ok"},
+    {t:"把调制频率提到 5 MHz 以上，比较 SNR。", why:"RIN 随频率下降，逼近散粒噪声极限；同时每个像素要包含足够多的调制周期。", ok:()=>D.srs && D.srs.mode==="ok" && S.fmod>=5e6},
+    {t:"调参考相位 φ_ref，让脂滴信号集中在 X 通道。", why:"放大器和线缆带来与频率成正比的电子学相位延迟 φ_e；相位不对，信号会漏到 Y 甚至变负。", ok:()=>D.srs && D.srs.mode==="ok" && phaseErr()<15},
+    {t:"调延时，让泵浦与 Stokes 在时间上重叠（重叠 > 0.9）。", why:"两束脉冲必须同时到达焦点，SRS 才发生。", ok:()=>D.srs && D.srs.ov>0.9},
+    {t:"拔掉玻璃棒变成变换极限脉冲，重新找到重叠：还能区分脂滴和蛋白吗？", why:"150 fs 脉冲的激发带宽 ~140 cm⁻¹，同时盖住 2850 与 2935 两个峰：信号大，但化学对比消失。", ok:()=>srsSeen.tlLook},
+    {t:"装回玻璃棒，用延时把 Ω_c 分别调到 2850（脂）与 2935 cm⁻¹（蛋白）。", why:"光谱聚焦：啁啾脉冲的瞬时频率差随延时线性变化，延时就是拉曼位移旋钮。", ok:()=>srsSeen.lipid && srsSeen.protein},
+    {t:"看 SRS Y 通道：吸收颗粒上的信号是什么？", why:"光热信号有热时间常数，相对调制存在相位滞后，主要落在正交通道——这正是 I/Q 双通道的价值。", ok:()=>D.srs && D.srs.mode==="ok" && viewsSeen.has("srsY") && phaseErr()<20},
+    {t:"拔掉 1040 nm 截止滤光片：锁相输出发生了什么？", why:"被调制的 Stokes 自己打到光电二极管上，比 SRS 大四个数量级，锁相直接过载。", ok:()=>D.srs && D.srs.mode==="overload"},
+    {t:"验收：在 SRS 通道扫 Stokes 功率，确认斜率 ≈ 1。", why:"ΔI_p ∝ I_p·I_S：固定泵浦时对 Stokes 线性，对浓度也线性——SRS 可以直接定量。", ok:()=>sweeps.srsX && sweeps.srsX.mode==="ok" && Math.abs(sweeps.srsX.slope-1)<0.2},
+  ],
+};
+const NEED={2:5,3:5,4:4};
+const NEXT_NAME={3:"双光子",4:"SHG",5:"SRS"};
+const done={2:new Set(),3:new Set(),4:new Set(),5:new Set()};
+function renderTasks(){
+  const list=TASKS[S.chapter]||[];
+  list.forEach((tk,i)=>{ if(tk.ok()) done[S.chapter].add(i); });
+  const titles={2:"第 2 章任务：搭一台激光扫描显微镜",3:"第 3 章任务：为什么要双光子",4:"第 4 章任务：看见不发荧光的胶原",5:"第 5 章任务：把 10⁻⁴ 的拉曼信号从噪声里捞出来"};
+  $("taskTitle").textContent=titles[S.chapter];
+  $("tasks").innerHTML=list.map((tk,i)=>`<li class="${done[S.chapter].has(i)?"done":""}"><span>${tk.t}<span class="why">${tk.why}</span></span></li>`).join("");
+  $("taskProg").textContent=`${done[S.chapter].size} / ${list.length}`;
+  const ub=$("unlockBtn"), next=S.chapter+1, need=NEED[S.chapter];
+  if(S.guided && need && S.unlocked<next){
+    const k=done[S.chapter].size; ub.hidden=false; ub.disabled=k<need;
+    ub.textContent = k<need? `完成 ${need} 项后解锁第 ${next} 章（${k}/${need}）` : `解锁第 ${next} 章：${NEXT_NAME[next]}`;
+    $("taskHint").textContent="完成任务会自动打勾。";
+  } else { ub.hidden=true; $("taskHint").textContent = S.guided? "完成任务会自动打勾。" : "自由探索：所有已实现的章节都已打开。"; }
+  $("sweepPanel").hidden = S.chapter<3;
+  const ch=sweepChannel();
+  $("sweepDesc").textContent = isSRS(ch) ? "对 SRS 通道最亮的像素，在当前 Stokes 功率附近扫 7 个点，在 log–log 坐标拟合斜率。"
+    : `对${CH_NAME[ch]}最亮的像素，在当前功率附近扫 7 个点（每点 16 帧，含泊松噪声），在 log–log 坐标拟合斜率。`;
+}
+$("unlockBtn").onclick=()=>{ const next=S.chapter+1; S.unlocked=next; S.mode="2P"; setChapter(next); };
+
+/* ============================================================ 17. chapters & modes */
+const CHAPTERS=[[2,"2 · 激光扫描"],[3,"3 · 双光子 TPF"],[4,"4 · SHG"],[5,"5 · SRS"],[6,"6 · 多模态","v4"],[8,"8 · 加工诊断","v5"]];
+function buildTabs(){
+  $("tabs").innerHTML="";
+  for(const [n,t,ver] of CHAPTERS){ const b=document.createElement("button"); b.className="tab"; b.type="button";
+    const locked = ver || n>S.unlocked; b.disabled=!!locked; b.setAttribute("aria-pressed",String(S.chapter===n));
+    b.innerHTML = t + (ver? `<span class="lock">${ver}</span>` : (n>S.unlocked? `<span class="lock">锁定</span>`:""));
+    if(ver) b.title="将在 "+ver+" 中解锁";
+    b.onclick=()=>setChapter(n); $("tabs").appendChild(b); }
+}
+function setChapter(n){
+  const prev=S.chapter; S.chapter=n;
+  if(n===2) S.mode="1P"; if(n>=4) S.mode="2P"; if(n<4) S.view="fl";
+  if(n>=5){ if(!S.ch5init){ S.removed.eom=true; S.removed.lockin=true; S.ch5init=true; }
+    if(S.lam<780||S.lam>830) S.lam=802; if(S.preset!=="cells"){ S.preset="cells"; buildSample("cells"); } S.view="srsX"; }
+  if(prev>=5 && n<5){ if(S.lam<850) S.lam=920; if(S.preset==="cells"){ S.preset="thick"; buildSample("thick"); } }
+  buildTabs(); D=derive(); buildRack(); onChange("chapter"); requestAnimationFrame(fitCanvases);
+}
+function setMode(guided){ S.guided=guided; $("mGuided").setAttribute("aria-pressed",String(guided)); $("mFree").setAttribute("aria-pressed",String(!guided));
+  if(!guided) S.unlocked=5; buildTabs(); buildRack(); renderTasks(); }
+$("mGuided").onclick=()=>setMode(true); $("mFree").onclick=()=>setMode(false);
+
+/* ============================================================ 18. main loop */
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(100, now-last); last=now; tAnim=now;
+  if(!dirtyExp) stepScan(dt*1000*S.speed);
+  if(scan.frameDone){ scan.frameDone=false; trackSRS(); renderTasks(); }
+  drawScanView(); drawImage(); drawOptics();
+  requestAnimationFrame(loop);
+}
+function fitCanvases(){
+  for(const [id,ar] of [["optics",440/1000],["side",400/1000],["spec",300/1000],["noise",340/1000]]){ const cv=$(id), r=cv.getBoundingClientRect(); if(!r.width) continue;
+    const dpr=Math.min(2,window.devicePixelRatio||1); cv.width=Math.round(r.width*dpr); cv.height=Math.round(r.width*ar*dpr);
+    const ts=clamp(1000/Math.max(1,r.width),1,2); if(id==="optics") TSo=ts; else if(id==="side") TSs=ts; else if(id==="spec") TSp=ts; else TSn=ts; }
+  drawSide(); drawSpec(); drawNoise();
+}
+window.addEventListener("resize", fitCanvases);
+
+buildSample(S.preset); buildTopView(); buildTabs(); buildRack(); resetImage(); D=derive();
+computeGeom(D); computePol(D); dirtyG=dirtyP=false; computeExpected(D); dirtyExp=false;
+fitCanvases(); buildViews(); updateReadouts(); renderTasks(); requestAnimationFrame(loop);
+</script>

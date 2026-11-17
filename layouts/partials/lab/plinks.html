@@ -3,7 +3,7 @@
 <div class="lab-plinks">
   {{- range . -}}{{- if .link -}}
     {{- $label := .label | default (.icon | humanize | title) -}}
-    {{- if eq .icon "envelope" }}{{ $label = "Email" }}{{ else if eq .icon "google-scholar" }}{{ $label = "Google Scholar" }}{{ else if eq .icon "orcid" }}{{ $label = "ORCID" }}{{ else if eq .icon "github" }}{{ $label = "GitHub" }}{{ else if eq .icon "researchgate" }}{{ $label = "ResearchGate" }}{{ end -}}
+    {{- if not .label }}{{ if eq .icon "envelope" }}{{ $label = i18n "lab_email" }}{{ else if eq .icon "google-scholar" }}{{ $label = "Google Scholar" }}{{ else if eq .icon "orcid" }}{{ $label = "ORCID" }}{{ else if eq .icon "github" }}{{ $label = "GitHub" }}{{ else if eq .icon "researchgate" }}{{ $label = "ResearchGate" }}{{ end }}{{ end -}}
     <a href="{{ .link | safeURL }}"{{ if hasPrefix .link "http" }} target="_blank" rel="noopener"{{ end }}>{{ $label }}</a>
   {{- end -}}{{- end -}}
 </div>

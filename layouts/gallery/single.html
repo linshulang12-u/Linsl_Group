@@ -7,7 +7,7 @@
 {{ $years = sort ($years | uniq) "value" "desc" }}
 
 {{ if not $images }}
-<section class="lab-section"><div class="lab-wrap"><p class="lab-lead">Photos will appear here soon.</p></div></section>
+<section class="lab-section"><div class="lab-wrap"><p class="lab-lead">{{ i18n "lab_photos_soon" }}</p></div></section>
 {{ else }}
 <section class="lab-section" style="padding:22px 0">
   <div class="lab-wrap"><ul class="lab-chips" style="margin:0">{{ range $years }}<li><a href="#y{{ . }}">{{ . }}</a></li>{{ end }}</ul></div>
@@ -20,7 +20,7 @@
 {{ $meta := index ($page.Params.years | default dict) $y }}
 <section class="lab-section" id="y{{ $y }}">
   <div class="lab-wrap">
-    <div class="lab-year" style="margin-top:0"><h2>{{ $y }}</h2><span>{{ len $photos }} {{ if eq (len $photos) 1 }}photo{{ else }}photos{{ end }}</span></div>
+    <div class="lab-year" style="margin-top:0"><h2>{{ $y }}</h2><span>{{ len $photos }} {{ if eq (len $photos) 1 }}{{ i18n "lab_photo" }}{{ else }}{{ i18n "lab_photos" }}{{ end }}</span></div>
     {{ with $meta }}{{ with .theme }}<h3 class="lab-h3" style="margin-top:8px">{{ . }}</h3>{{ end }}{{ with .text }}<p class="lab-muted" style="max-width:44rem">{{ . }}</p>{{ end }}{{ end }}
     <div class="lab-gallery" style="margin-top:22px">
       {{ range $photos }}
@@ -51,7 +51,7 @@
   <button class="lab-lb-prev" type="button" aria-label="Previous photo">‹</button>
   <button class="lab-lb-next" type="button" aria-label="Next photo">›</button>
   <img alt="">
-  <p><span></span> · <a href="#" target="_blank" rel="noopener">Open original image</a></p>
+  <p><span></span> · <a href="#" target="_blank" rel="noopener">{{ i18n "lab_open_original" }}</a></p>
 </div>
 <script>
 (function () {

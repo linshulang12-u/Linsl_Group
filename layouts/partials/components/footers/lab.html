@@ -1,5 +1,6 @@
 {{ $lab := site.Data.lab }}
+{{ $zh := eq site.Language.Lang "zh" }}
 <div class="lab-footer">
-  <p>© {{ now.Year }} {{ $lab.name }}{{ with ($lab.institution_short | default $lab.institution) }}, {{ . }}{{ end }}</p>
+  <p>© {{ now.Year }} {{ if $zh }}{{ $lab.institution_zh }} {{ $lab.name_zh }}{{ else }}{{ $lab.full_name | default $lab.name }}{{ with ($lab.institution_short | default $lab.institution) }}, {{ . }}{{ end }}{{ end }}</p>
   {{ with $lab.email }}<p><a href="mailto:{{ . }}">{{ . }}</a></p>{{ end }}
 </div>

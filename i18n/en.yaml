@@ -1,0 +1,192 @@
+- id: lab_details
+  translation: Details
+- id: lab_cite
+  translation: Cite
+- id: lab_code
+  translation: Code
+- id: lab_data
+  translation: Data
+- id: lab_project
+  translation: Project
+- id: lab_continue
+  translation: Continue
+- id: lab_open
+  translation: Open →
+- id: lab_current_focus
+  translation: Current focus
+- id: lab_directions
+  translation: Directions
+- id: lab_directions_title
+  translation: Connected research directions
+- id: lab_explore_direction
+  translation: Explore this direction →
+- id: lab_shared_principles
+  translation: Shared principles
+- id: lab_principles_title
+  translation: How we approach a problem
+- id: lab_research
+  translation: Research
+- id: lab_direction
+  translation: Direction
+- id: lab_research_focus
+  translation: Research focus
+- id: lab_related_pubs
+  translation: Related publications
+- id: lab_papers_in_direction
+  translation: Papers in this direction
+- id: lab_other_directions
+  translation: Other directions
+- id: lab_explore
+  translation: Explore →
+- id: lab_interactive_demo
+  translation: Interactive demo
+- id: lab_home_research
+  translation: Research
+- id: lab_home_research_title
+  translation: One optical toolbox, several directions
+- id: lab_all_research
+  translation: All research →
+- id: lab_selected_work
+  translation: Selected work
+- id: lab_selected_work_title
+  translation: Recent and representative papers
+- id: lab_all_pubs
+  translation: All publications →
+- id: lab_people_culture
+  translation: People and culture
+- id: lab_meet_team
+  translation: Meet the team
+- id: lab_how_we_work
+  translation: How we work
+- id: lab_latest_news
+  translation: Latest news
+- id: lab_from_lab
+  translation: From the lab
+- id: lab_all_news
+  translation: All news →
+- id: lab_work_with_us
+  translation: Work with us
+- id: lab_join_collab
+  translation: Join / Collaborate
+- id: lab_see_work
+  translation: See what we work on
+- id: lab_research_outputs
+  translation: Research outputs
+- id: lab_records
+  translation: Records
+- id: lab_newest_first
+  translation: Newest first
+- id: lab_record
+  translation: record
+- id: lab_records_lc
+  translation: records
+- id: lab_cofirst
+  translation: co-first author
+- id: lab_corresponding
+  translation: corresponding author
+- id: lab_bold
+  translation: bold
+- id: lab_member
+  translation: = lab member
+- id: lab_news_eyebrow
+  translation: News / Lab record
+- id: lab_published_entries
+  translation: Published entries
+- id: lab_archive_years
+  translation: Archive years
+- id: lab_current_entry
+  translation: Current entry
+- id: lab_read_latest
+  translation: Read latest record →
+- id: lab_archive
+  translation: Archive
+- id: lab_entry
+  translation: entry
+- id: lab_entries
+  translation: entries
+- id: lab_photo
+  translation: photo
+- id: lab_photos
+  translation: photos
+- id: lab_photos_soon
+  translation: Photos will appear here soon.
+- id: lab_open_original
+  translation: Open original image
+- id: lab_find_way
+  translation: Find a way to work together
+- id: lab_ways_title
+  translation: Who we would like to hear from
+- id: lab_bring
+  translation: What you can bring
+- id: lab_first_email
+  translation: In your first email
+- id: lab_suggested_subject
+  translation: Suggested subject line
+- id: lab_email_btn
+  translation: Email
+- id: lab_primary_contact
+  translation: Primary contact
+- id: lab_contact
+  translation: Contact
+- id: lab_lab
+  translation: Lab
+- id: lab_affiliation
+  translation: Affiliation
+- id: lab_email
+  translation: Email
+- id: lab_phone
+  translation: Phone
+- id: lab_address
+  translation: Address
+- id: lab_tba
+  translation: To be added
+- id: lab_placeholder
+  translation: Placeholder
+- id: lab_coming_soon
+  translation: Coming soon.
+- id: lab_current_team
+  translation: Current team
+- id: lab_team_title
+  translation: The people behind the work
+- id: lab_alumni
+  translation: Alumni
+- id: lab_alumni_title
+  translation: Where our members went next
+- id: lab_name
+  translation: Name
+- id: lab_former_role
+  translation: Former role / programme
+- id: lab_years
+  translation: Years
+- id: lab_next
+  translation: Next destination
+- id: lab_values
+  translation: Our Values · 核心价值观
+- id: lab_type_journal
+  translation: Journal article
+- id: lab_type_conf
+  translation: Conference paper
+- id: lab_type_preprint
+  translation: Preprint
+- id: lab_type_chapter
+  translation: Book chapter
+- id: lab_type_book
+  translation: Book
+- id: lab_type_thesis
+  translation: Thesis
+- id: lab_type_patent
+  translation: Patent
+- id: lab_type_report
+  translation: Report
+- id: lab_type_other
+  translation: Publication
+- id: lab_lang_switch
+  translation: 中文
+- id: lab_lang_switch_label
+  translation: 切换到中文
+- id: lab_open_demo_new
+  translation: opens in a new tab
+- id: lab_partners
+  translation: Collaborators
+- id: lab_partners_title
+  translation: We work with

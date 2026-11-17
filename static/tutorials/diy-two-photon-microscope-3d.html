@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIY 双光子显微镜</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+/* Layout: full-height split — 3D optical bench on the left, parts manual + design calculator on the right.
+   Single dark look on purpose: two-photon rigs live in dark rooms behind light-tight curtains. */
+:root{
+  --bg:#0f141a;
+  --panel:#141b23;
+  --panel-2:#1a232d;
+  --line:#27323e;
+  --fg:#e6ebf1;
+  --muted:#8f9cab;
+  --accent:#f0b13c;      /* laser-safety amber */
+  --nir:#ff4d5e;         /* excitation, false colour */
+  --em-g:#43d495;
+  --em-r:#ff9152;
+  --shg:#7f97ff;
+  --wf:#efd9a6;
+  --ok:#5fd39a; --warn:#f0b13c; --bad:#ff6b6b;
+  --f-display:"Barlow Condensed","Noto Sans SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.6;overflow:hidden}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 400px;height:100%}
+
+/* ---------- viewer ---------- */
+.viewer{position:relative;min-width:0;overflow:hidden;background:radial-gradient(120% 90% at 35% 30%,#18212b 0%,var(--bg) 70%)}
+#gl{position:absolute;inset:0}
+#gl canvas{display:block;outline:none}
+.top{position:absolute;left:16px;right:16px;top:14px;display:flex;flex-wrap:wrap;gap:12px 18px;align-items:flex-start;justify-content:space-between;pointer-events:none;z-index:3}
+.brand{pointer-events:auto}
+.brand h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:28px;letter-spacing:.02em;line-height:1.05;text-wrap:balance}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:12.5px}
+.brand p b{color:var(--accent);font-weight:500}
+.tools{display:flex;flex-wrap:wrap;gap:6px;pointer-events:auto;justify-content:flex-end}
+.chip{font:500 12.5px/1 var(--f-body);color:var(--muted);background:rgba(20,27,35,.82);border:1px solid var(--line);border-radius:6px;padding:7px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;backdrop-filter:blur(6px)}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;border:1px solid var(--muted)}
+.chip[aria-pressed="true"]{color:var(--fg);border-color:#4a5a6b}
+.chip[aria-pressed="true"]::before{background:var(--accent);border-color:var(--accent)}
+.chip.plain::before{display:none}
+.chip:hover{color:var(--fg)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:rgba(20,27,35,.82)}
+.seg button{font:500 12.5px/1 var(--f-body);color:var(--muted);background:none;border:0;padding:7px 11px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#1a1205}
+button:focus-visible,input:focus-visible,.item:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.legend{position:absolute;left:16px;bottom:14px;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);z-index:3;max-width:calc(100% - 32px);pointer-events:none}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:16px;height:3px;border-radius:2px;display:inline-block}
+.hint{position:absolute;right:16px;bottom:14px;font-size:11.5px;color:#6b7988;z-index:3;pointer-events:none}
+#tip{position:absolute;z-index:4;pointer-events:none;background:#0b1015;border:1px solid #3a4756;border-radius:5px;padding:4px 8px;font-size:12.5px;white-space:nowrap;transform:translate(12px,12px)}
+#tip b{font-family:var(--f-mono);color:var(--accent);font-weight:500;margin-right:6px}
+.pin{pointer-events:auto;cursor:pointer;font:500 10.5px/1 var(--f-mono);color:#0f141a;background:#c9d3de;border-radius:9px;min-width:18px;height:18px;padding:0 4px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px rgba(15,20,26,.75);transition:transform .15s}
+.pin:hover{transform:scale(1.15)}
+.pin.on{background:var(--accent)}
+
+/* ---------- side panel ---------- */
+.side{min-width:0;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;height:100%;overflow:hidden}
+.detail{flex:0 0 auto;max-height:54%;overflow:auto;padding:18px 20px 16px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+.d-head{display:flex;gap:12px;align-items:flex-start}
+.d-num{font:500 13px/1 var(--f-mono);background:var(--accent);color:#1a1205;border-radius:4px;padding:6px 7px;flex:none;margin-top:3px}
+.d-head h2{margin:0;font-size:19px;font-weight:700;line-height:1.3;text-wrap:balance}
+.d-en{margin:2px 0 0;color:var(--muted);font-family:var(--f-display);font-size:15px;letter-spacing:.03em}
+.d-grp{display:inline-block;margin:10px 0 2px;font-size:11px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+.detail h3{margin:12px 0 4px;font-size:11.5px;font-weight:500;letter-spacing:.14em;color:var(--accent)}
+.detail p{margin:0;color:#cfd7e0}
+.detail ul{margin:0;padding-left:18px;color:#cfd7e0}
+.detail li{margin:2px 0}
+code{font-family:var(--f-mono);font-size:12px;color:#ffd58a;background:rgba(240,177,60,.08);border-radius:3px;padding:0 4px}
+.scroll{flex:1 1 auto;overflow:auto;min-height:0}
+.sec{padding:16px 20px 6px}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:0 0 6px}
+.sec-h h3{margin:0;font-family:var(--f-display);font-weight:600;font-size:18px;letter-spacing:.04em}
+.sec-h span{font:400 11.5px var(--f-mono);color:var(--muted)}
+.grp{margin:12px 0 4px;font-size:11px;letter-spacing:.14em;color:var(--muted)}
+.list{display:flex;flex-direction:column;gap:1px}
+.item{display:grid;grid-template-columns:28px minmax(0,1fr);gap:8px;align-items:baseline;text-align:left;background:none;border:0;border-radius:5px;padding:5px 6px;color:var(--fg);cursor:pointer;font:inherit}
+.item:hover{background:#1c2630}
+.item.on{background:rgba(240,177,60,.12)}
+.item .n{font:500 11.5px var(--f-mono);color:var(--muted)}
+.item.on .n{color:var(--accent)}
+.item .t{min-width:0}
+.item .t small{color:var(--muted);font-family:var(--f-display);font-size:13px;letter-spacing:.03em;margin-left:6px}
+.calc{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin-top:8px}
+.calc label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--muted);min-width:0}
+.calc input{width:100%;font:500 13px var(--f-mono);color:var(--fg);background:#0f151c;border:1px solid var(--line);border-radius:5px;padding:6px 8px;font-variant-numeric:tabular-nums}
+.out{margin:12px 0 4px;border-top:1px solid var(--line)}
+.row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #1f2933;font-size:13px}
+.row span:first-child{color:var(--muted)}
+.row span:last-child{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right}
+.pill{display:inline-block;font:500 11px var(--f-body);border-radius:10px;padding:2px 8px;margin-left:6px}
+.pill.ok{background:rgba(95,211,154,.15);color:var(--ok)}
+.pill.warn{background:rgba(240,177,60,.15);color:var(--warn)}
+.pill.bad{background:rgba(255,107,107,.15);color:var(--bad)}
+.note{font-size:11.5px;color:#73808e;margin:8px 0 18px}
+
+@media (max-width:880px){
+  body{overflow:auto}
+  .app{display:flex;flex-direction:column;height:auto}
+  .viewer{height:60vh;min-height:360px;flex:none}
+  .side{height:auto;border-left:0;border-top:1px solid var(--line);overflow:visible}
+  .detail{max-height:none}
+  .scroll{overflow:visible}
+  .hint{display:none}
+  .brand h1{font-size:23px}
+}
+@media (prefers-reduced-motion:reduce){ .pin{transition:none} }
+</style>
+
+<div class="app">
+  <section class="viewer" id="viewer" aria-label="三维模型">
+    <div id="gl"></div>
+    <div class="top">
+      <div class="brand">
+        <h1>DIY 双光子扫描显微镜</h1>
+        <p>正置 · 共振-振镜扫描 · 非退扫探测 · <b>32 个部件</b></p>
+      </div>
+      <div class="tools">
+        <div class="seg" role="group" aria-label="成像模式">
+          <button id="m2p" aria-pressed="true">双光子</button>
+          <button id="mwf" aria-pressed="false">宽场</button>
+        </div>
+        <button class="chip" id="tBeam" aria-pressed="true">光路</button>
+        <button class="chip" id="tScan" aria-pressed="true">扫描动画</button>
+        <button class="chip" id="tPin" aria-pressed="true">编号</button>
+        <button class="chip" id="tShell" aria-pressed="true">壳体</button>
+        <button class="chip" id="tEncl" aria-pressed="false">遮光罩</button>
+        <button class="chip plain" id="tReset">复位视角</button>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--nir)"></i>激发 920 nm（伪彩）</span>
+      <span><i style="background:var(--em-g)"></i>绿通道荧光</span>
+      <span><i style="background:var(--em-r)"></i>红通道荧光</span>
+      <span><i style="background:var(--shg)"></i>前向 SHG</span>
+      <span><i style="background:var(--wf)"></i>宽场照明</span>
+    </div>
+    <div class="hint">拖动旋转 · 右键平移 · 滚轮缩放 · 点击部件</div>
+    <div id="tip" hidden></div>
+  </section>
+
+  <aside class="side" id="side">
+    <div class="detail" id="detail" aria-live="polite"></div>
+    <div class="scroll">
+      <div class="sec">
+        <div class="sec-h"><h3>部件清单</h3><span>按光路顺序</span></div>
+        <div id="list"></div>
+      </div>
+      <div class="sec">
+        <div class="sec-h"><h3>光学设计核算</h3><span>4f 扫描中继</span></div>
+        <div class="calc">
+          <label for="cD">扫描镜处光束直径 D (mm)<input id="cD" type="number" step="0.1" value="5"></label>
+          <label for="cTh">扫描光学角 峰-峰 (°)<input id="cTh" type="number" step="0.5" value="26"></label>
+          <label for="cFs">扫描透镜 f<sub>s</sub> (mm)<input id="cFs" type="number" step="1" value="50"></label>
+          <label for="cFt">管镜 f<sub>t</sub> (mm)<input id="cFt" type="number" step="1" value="200"></label>
+          <label for="cM">物镜倍率 M<input id="cM" type="number" step="1" value="16"></label>
+          <label for="cL">厂家管镜焦距 (mm)<input id="cL" type="number" step="1" value="200"></label>
+          <label for="cNA">物镜 NA<input id="cNA" type="number" step="0.01" value="0.8"></label>
+          <label for="cN">浸没折射率 n<input id="cN" type="number" step="0.01" value="1.33"></label>
+          <label for="cLam">激发波长 λ (nm)<input id="cLam" type="number" step="10" value="920"></label>
+        </div>
+        <div class="out" id="out"></div>
+        <p class="note">厂家管镜焦距：Nikon / Leica 200，Olympus 180，Zeiss 165。分辨率按 Zipfel 等（2003）双光子照明 PSF 公式，有效 NA 取 NA × min(1, 填充比) 作粗略估计；实际值受像差和散射影响会更大。</p>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+<script>
+(function(){
+const GROUPS={A:'激发光路与功率控制',B:'扫描头',C:'物镜、样品与调焦',D:'非退扫与前向探测',E:'控制、平台与防护'};
+const PARTS=[
+{id:'laser',g:'A',zh:'飞秒激光器',en:'Femtosecond laser',
+ role:'输出高峰值功率的近红外飞秒脉冲。双光子吸收只在焦点处足够强，这就是层析能力的来源。',
+ spec:['可调谐 Ti:Sapphire：680–1080 nm，~100–140 fs，80 MHz，920 nm 处 >1.5 W','或固定波长光纤激光：920 nm（GCaMP / GFP）、1040 nm（tdTomato / RFP），成本明显更低','TEM00，线偏振（多为水平），光束直径 ~1–2 mm'],
+ tip:'Class 4 激光，搭建全程佩戴对应波段护目镜，光路保持水平且低于眼睛高度。激光出口高度决定整条台面光路的中心高（本模型取 100 mm）。从激光到焦点的总 GDD（Pockels、物镜、透镜）可达 10⁴ fs² 量级，带色散预补偿的型号可以省掉棱镜对。'},
+{id:'hwp',g:'A',zh:'λ/2 波片（电动旋转）',en:'Half-wave plate, motorized',
+ role:'旋转入射偏振，与 Pockels 盒及后面的 PBS 一起设定透过率上限，相当于一个慢速的总功率旋钮。',
+ spec:['零级或消色差 λ/2，690–1200 nm 增透','电动旋转座（如 Thorlabs <code>K10CR1</code>），便于软件记录功率'],
+ tip:'先用它把最大输出限定在实验允许的安全值，再让 Pockels 做快速调制，样品和 PMT 都受保护。'},
+{id:'pockels',g:'A',zh:'电光调制器 Pockels 盒',en:'Pockels cell (EOM)',
+ role:'μs 级强度调制：行回扫消隐；共振镜在视场边缘速度慢、驻留时间长，需在边缘降功率或直接消隐；随成像深度增加功率。',
+ spec:['KD*P 晶体，孔径 ≥ 2.7 mm，如 Conoptics <code>350-80</code> + <code>302RM</code> 高压驱动','消光比 >100:1，带宽 >1 MHz','需要 DAQ 一路模拟输出与扫描同步'],
+ tip:'晶体本身贡献数百至上千 fs² 的 GDD。用功率计配合慢扫电压，标定透过率–电压曲线（sin² 形），在软件里查表线性化。'},
+{id:'pbs',g:'A',zh:'偏振分束立方 + 光阱',en:'PBS analyzer + beam dump',
+ role:'Pockels 盒的检偏器：透射偏振继续前进，被拒绝的分量反射进光阱。',
+ spec:['宽带 PBS（700–1300 nm）或 Glan-laser 棱镜（消光比更高）','光阱需承受全功率 >2 W，带散热片'],
+ tip:'光阱必须固定牢靠，开口朝平台内侧，不让任何反射光离开台面。'},
+{id:'shutter',g:'A',zh:'机械快门',en:'Mechanical shutter',
+ role:'不采集时彻底挡光，避免漂白，也防止 PMT 在开盖、换样时受强光。',
+ spec:['Thorlabs <code>SH05</code> 或 Uniblitz，孔径 ≥ 5 mm','由采集软件的 TTL 控制'],
+ tip:'Pockels 关态仍有残余功率，不能代替快门做安全挡光。'},
+{id:'expander',g:'A',zh:'扩束望远镜',en:'Beam expander',
+ role:'把激光直径扩到与扫描镜通光口径匹配，经后面的 4f 中继放大后正好填满物镜后孔径。',
+ spec:['伽利略式：f = −50 mm + f = +150 mm，3×，无实焦点（避免空气电离）','NIR 增透（650–1050 nm）'],
+ tip:'微调两片间距可改变出射发散，等效于小范围移动焦面。搭建时用剪切干涉板确认准直。'},
+{id:'steer',g:'A',zh:'导向反射镜 M1 / M2',en:'Steering mirrors',
+ role:'两面镜子提供 4 个自由度，把光轴同时对准潜望镜和扫描镜中心。',
+ spec:['1" 宽带介质镜（750–1100 nm），优先低 GDD 超快镜','精密运动学镜架'],
+ tip:'在下游放两个光阑：近光阑调 M1，远光阑调 M2，反复迭代到光束同时穿过两孔。'},
+{id:'periscope',g:'A',zh:'潜望镜',en:'Periscope',
+ role:'把光束从台面高度抬到扫描头高度，并转向进入扫描镜。',
+ spec:['两面 1" 介质镜 + 刚性立柱（如 Thorlabs <code>RS99</code> 套件或 1.5" 立柱）'],
+ tip:'光束在水平面内转了 90°，偏振随之由水平变为竖直。做偏振敏感的 SHG，或在意介质镜 s/p 反射率差异时要考虑这一点，必要时在潜望镜后再加一片 λ/2。'},
+{id:'scanner',g:'B',zh:'共振-振镜扫描器',en:'Galvo-resonant scanner',
+ role:'8 kHz 共振镜负责快轴（X），振镜负责慢轴（Y）。扫描镜位于物镜后焦面的共轭面，镜子的转角变成焦点在样品中的横向位移。',
+ spec:['Cambridge Technology <code>CRS 8 kHz</code>，镜面约 5 mm 量级，最大光学角以说明书为准（约 26° 峰-峰）','慢轴振镜如 <code>6215H</code>，5 mm 镜片','512 × 512 双向扫描约 30 fps；需要随机寻址或光刺激时可用双振镜'],
+ tip:'两镜紧耦合时只能把两镜中点放在扫描透镜前焦面，大视场边缘有少量渐晕；更严格的做法是两镜之间加 4f 或球面镜中继。双向扫描要在软件里标定共振相位，消除奇偶行错位。'},
+{id:'scanlens',g:'B',zh:'扫描透镜',en:'Scan lens',
+ role:'把扫描角转换为中间像面上的位置，并与管镜组成 4f 中继。',
+ spec:['Thorlabs <code>SL50-2P2</code>：f = 50 mm，双光子波段优化，平场'],
+ tip:'扫描镜到扫描透镜的距离按其入瞳位置放置（说明书给出），不是按机械端面。'},
+{id:'tubelens',g:'B',zh:'管镜',en:'Tube lens',
+ role:'与扫描透镜一起把扫描镜成像到物镜后焦面，同时把光束放大 f<sub>t</sub>/f<sub>s</sub> 倍。',
+ spec:['Thorlabs <code>TTL200MP</code>：f = 200 mm，多光子优化','本模型放大 4×：5 mm → 20 mm'],
+ tip:'管镜到物镜后焦面的距离应约等于 f<sub>t</sub>。BFP 通常在物镜肩部以内几毫米，偏离会造成视场边缘功率下降和渐晕。'},
+{id:'fold',g:'B',zh:'可切换折返镜',en:'Switchable fold mirror',
+ role:'双光子模式下把水平光束折向下方物镜；宽场模式时移出光路，让样品像上行到相机。',
+ spec:['2" 宽带介质镜，装在电动翻转座（如 <code>MFF102</code>）或线性滑块上'],
+ tip:'切换的角度重复性直接影响光轴，镜座要带机械限位。点右上角“宽场”可以看到它移出。'},
+{id:'camera',g:'B',zh:'宽场相机与镜筒',en:'Widefield camera',
+ role:'找样品、看血管图谱、定位视野，不参与双光子成像。',
+ spec:['USB3 CMOS 相机 + f = 200 mm 镜筒'],
+ tip:'主二色镜反射 <705 nm 的光，所以透射明场宜用 >720 nm 的近红外 LED，或把主二色镜做成可滑出的。相机焦面要与双光子焦面做齐焦标定。'},
+{id:'housing',g:'B',zh:'扫描头与探测笼式结构',en:'Scan head & detector cage',
+ role:'刚性固定扫描光学与探测光学，并遮挡杂散光。',
+ spec:['60 mm 笼式系统或加工铝板','黑色阳极氧化，内壁植绒或哑光黑漆'],
+ tip:'扫描头刚度决定长时间成像的漂移。元件先在笼杆上预对准，再整体装上立柱。'},
+{id:'dichroic',g:'C',zh:'主二色镜',en:'Primary dichroic',
+ role:'透射近红外激发光，把向后出射的可见荧光反射到非退扫（NDD）探测器。',
+ spec:['Semrock <code>FF705-Di01</code>（长通，反射 <705 nm）','大尺寸 ≥ 36 × 50 mm，接住大角度散射光'],
+ tip:'尽量贴近物镜。深层组织的荧光大多经多次散射，从物镜出射时发散很大，非退扫效率主要靠路径短、口径大。'},
+{id:'piezo',g:'C',zh:'物镜压电 Z 扫描器',en:'Objective piezo',
+ role:'快速改变焦面深度，用于体积成像或多平面成像。',
+ spec:['PI <code>P-725</code> PIFOC，行程 400 µm','或用电控变焦透镜（ETL）做远程调焦'],
+ tip:'水浸物镜较重，会降低压电带宽。高速多平面成像要按负载重调 PID，并与帧信号同步。'},
+{id:'objective',g:'C',zh:'物镜',en:'Objective',
+ role:'把激发光聚焦到样品内，同时收集荧光。决定分辨率、视场和收集效率。',
+ spec:['Nikon <code>CFI75 16×/0.8W</code>：WD 3 mm，大视场，后孔径约 20 mm','Olympus <code>XLPLN25XWMP2</code> 25×/1.05：WD 2 mm，NIR 透过率高'],
+ tip:'优先低倍、高 NA、大视场数，这类物镜收集立体角和视场都大。激发光束应基本填满后孔径，可用下方计算器核对。'},
+{id:'sample',g:'C',zh:'样品',en:'Sample',
+ role:'例如活体小鼠颅窗、急性脑片或类器官。',
+ spec:['水浸物镜与样品之间保持水层','活体需头固定架、温控与麻醉'],
+ tip:'先用 0.2 µm 荧光微球测 PSF，确认系统接近衍射极限，再上生物样品。'},
+{id:'stage',g:'C',zh:'XY 电动载物台',en:'Motorized XY stage',
+ role:'移动样品选择视野，也可做大范围拼接。',
+ spec:['行程 ≥ 25 mm，重复精度 ~1 µm，如 Thorlabs <code>MLS203</code>','中间开孔，给透射探测留出光路'],
+ tip:'商用活体系统常固定样品、移动整个显微镜；DIY 移动样品更简单。'},
+{id:'zcol',g:'C',zh:'立柱与 Z 粗调',en:'Rigid column & Z focus',
+ role:'支撑整个扫描头，并做毫米级粗调焦。',
+ spec:['重型立柱 + 线性导轨，步进电机驱动，最小步长 ~0.1 µm','行程 ≥ 25 mm'],
+ tip:'扫描头悬臂越长越容易振动，立柱尽量靠近光轴，必要时加斜撑。'},
+{id:'irblock',g:'D',zh:'红外截止滤光片',en:'IR-blocking filter',
+ role:'挡住散射的激发光，避免它进入 PMT 成为背景。',
+ spec:['Semrock <code>FF01-680/SP</code>，激光波段 OD > 6','1040 nm 激发时可换截止更长的型号'],
+ tip:'放在 PMT 前、收集透镜附近。只开激光、不放荧光样品，测一次 PMT 背景来验证截止深度。'},
+{id:'collect',g:'D',zh:'收集透镜',en:'Collection lens',
+ role:'把物镜后孔径成像到 PMT 光阴极上，使不同角度出射的散射光都落进阴极。',
+ spec:['2" 非球面，f ≈ 30–50 mm，或两片组合'],
+ tip:'这里成像的是光瞳而不是样品，所以光斑不随扫描移动。GaAsP 阴极直径只有 5 mm，光斑要小于它。'},
+{id:'dichroic2',g:'D',zh:'次级二色镜',en:'Secondary dichroic',
+ role:'把荧光分成绿、红两个通道。',
+ spec:['Semrock <code>FF562-Di03</code>'],
+ tip:'45° 入射，镀膜面朝向入射光。'},
+{id:'emf',g:'D',zh:'发射滤光片（绿 / 红）',en:'Emission filters',
+ role:'分别限定两个通道的波段，减少串扰。',
+ spec:['绿：<code>FF03-525/50</code>（GCaMP、GFP）','红：<code>FF01-607/70</code>（tdTomato、mCherry）'],
+ tip:'换染料时只需换滤光片，做成磁吸或滑块式更方便。'},
+{id:'pmt1',g:'D',zh:'绿通道 GaAsP PMT',en:'GaAsP PMT · green',
+ role:'把荧光光子转换为电流信号。',
+ spec:['Hamamatsu <code>H10770PA-40</code> 或 Thorlabs <code>PMT2101</code>，500 nm 处 QE ~40%','配高带宽跨阻放大器（≥ 80 MHz），共振扫描像素驻留只有约 100 ns'],
+ tip:'GaAsP 怕强光。务必做软件和硬件联锁：开遮光罩、开灯时自动关高压。'},
+{id:'pmt2',g:'D',zh:'红通道 GaAsP PMT',en:'GaAsP PMT · red',
+ role:'红色荧光通道的探测器。',
+ spec:['同绿通道；需要 >650 nm 响应时选 <code>H10770PA-50</code>'],
+ tip:'两通道增益分别标定，便于做比率成像。'},
+{id:'condenser',g:'D',zh:'透射收集聚光镜',en:'Condenser (forward collection)',
+ role:'收集向前传播的信号（SHG、THG 主要向前），也可作明场照明。',
+ spec:['高 NA 聚光镜（油浸 NA 1.4 或空气 NA 0.9）','下方可加近红外 LED 做明场'],
+ tip:'同样要把聚光镜的光瞳成像到探测器上，原理与非退扫收集透镜一致。'},
+{id:'transpmt',g:'D',zh:'前向（透射）PMT',en:'Transmitted PMT',
+ role:'探测前向 SHG 等信号，例如胶原和肌球蛋白。',
+ spec:['多碱 PMT（如 Hamamatsu <code>H10721</code>）+ λ/2 窄带滤光片','920 nm 激发时 SHG 在 460 nm，可选 <code>FF01-460/14</code>'],
+ tip:'厚的活体样品前向信号到不了下方，这一路主要用于薄样品和切片。'},
+{id:'table',g:'E',zh:'隔振光学平台',en:'Optical table',
+ role:'提供隔振和 25 mm 螺孔阵列，所有光机都固定在上面。',
+ spec:['≥ 1200 × 900 mm，气浮隔振腿','M6 螺孔，25 mm 间距'],
+ tip:'激光器单独占一端；Pockels 高压线远离 PMT 信号线。'},
+{id:'enclosure',g:'E',zh:'遮光罩',en:'Light-tight enclosure',
+ role:'遮挡环境光保护 PMT，同时作为激光防护屏障。',
+ spec:['黑色铝塑板或遮光布 + 门开关联锁'],
+ tip:'门联锁信号同时接到快门和 PMT 高压，开门即关。点右上角“遮光罩”可显示。'},
+{id:'electronics',g:'E',zh:'控制电子学',en:'Control electronics',
+ role:'产生扫描波形、同步采集 PMT 信号、驱动 Pockels 盒与快门。',
+ spec:['采集：NI FlexRIO 或 vDAQ，≥ 80 MS/s，或用激光重复频率做采样时钟','共振镜驱动器、振镜伺服驱动器','Pockels 高压放大器、PMT 电源与前放'],
+ tip:'8 kHz 共振双向扫描每行约 62.5 µs，去掉边缘后 512 像素约 100 ns/像素，所以需要高速数字化和共振同步信号。'},
+{id:'pc',g:'E',zh:'计算机与采集软件',en:'PC & acquisition software',
+ role:'控制扫描、实时显示、保存数据。',
+ spec:['ScanImage（MATLAB）或 Thorlabs ThorImageLS','≥ 64 GB 内存，NVMe 硬盘（512² 双通道 30 fps 约 30 MB/s）'],
+ tip:'ScanImage 支持自定义硬件配置，是自建系统最常用的选择。'}
+];
+PARTS.forEach((p,i)=>{p.n=i+1;});
+const byId=Object.fromEntries(PARTS.map(p=>[p.id,p]));
+const pad=n=>String(n).padStart(2,'0');
+
+/* ---------------- three.js scene ---------------- */
+const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+const X=V(1,0,0),Y=V(0,1,0),Z=V(0,0,1);
+const viewer=document.getElementById('viewer'), host=document.getElementById('gl');
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const scene=new THREE.Scene();
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setClearColor(0x000000,0);
+host.appendChild(renderer.domElement);
+const labels=new THREE.CSS2DRenderer();
+labels.domElement.style.position='absolute';labels.domElement.style.inset='0';labels.domElement.style.pointerEvents='none';
+host.appendChild(labels.domElement);
+
+const camera=new THREE.PerspectiveCamera(36,1,0.5,3000);
+const HOME={pos:V(128,92,122),tgt:V(16,24,-2)};
+camera.position.copy(HOME.pos);
+const controls=new THREE.OrbitControls(camera,renderer.domElement);
+controls.target.copy(HOME.tgt);controls.enableDamping=true;controls.dampingFactor=.08;controls.maxDistance=600;controls.minDistance=6;
+
+scene.add(new THREE.HemisphereLight(0xdbe4f0,0x141a21,.9));
+const key=new THREE.DirectionalLight(0xffffff,1.0);key.position.set(80,140,90);scene.add(key);
+const fill=new THREE.DirectionalLight(0x9fb6d6,.45);fill.position.set(-90,60,-60);scene.add(fill);
+const grid=new THREE.GridHelper(500,50,0x26313d,0x1a222b);grid.position.y=-40;scene.add(grid);
+
+const std=(c,m=.3,r=.55,x={})=>new THREE.MeshStandardMaterial(Object.assign({color:c,metalness:m,roughness:r},x));
+const M={
+  black:()=>std(0x20262d,.35,.5), dark:()=>std(0x2c3540,.4,.45), alu:()=>std(0xb3bcc6,.6,.32),
+  steel:()=>std(0x9ea8b2,.7,.28), white:()=>std(0xd5dae0,.15,.45), mirror:()=>std(0xe3ebf4,.55,.14),
+  glass:()=>std(0xa6d6ff,.05,.05,{transparent:true,opacity:.38,depthWrite:false}),
+  dich:()=>std(0xc8a0ff,.2,.1,{transparent:true,opacity:.6,side:THREE.DoubleSide}),
+  tint:(c,o=.75)=>std(c,.1,.25,{transparent:true,opacity:o}),
+  shell:(o=.14)=>std(0x34465a,.1,.6,{transparent:true,opacity:o,depthWrite:false,side:THREE.DoubleSide}),
+  color:c=>std(c,.25,.45)
+};
+function add(g,geo,mat,p){const m=new THREE.Mesh(geo,mat);if(p)m.position.copy(p);g.add(m);return m;}
+function box(g,w,h,d,p,mat){return add(g,new THREE.BoxGeometry(w,h,d),mat,p);}
+function cyl(g,r,len,p,dir,mat,rTop,seg=28,open=false){const m=add(g,new THREE.CylinderGeometry(rTop==null?r:rTop,r,len,seg,1,open),mat,p);m.quaternion.setFromUnitVectors(Y,dir.clone().normalize());return m;}
+function ring(g,R,t,p,dir,mat){const m=add(g,new THREE.TorusGeometry(R,t,10,36),mat,p);m.quaternion.setFromUnitVectors(Z,dir.clone().normalize());return m;}
+function post(g,x,z,yTop,y0=0){const h=yTop-y0;cyl(g,.62,h,V(x,y0+h/2,z),Y,M.steel());const hh=Math.min(6,h*.55);cyl(g,.9,hh,V(x,y0+hh/2,z),Y,M.black());box(g,3,.5,3,V(x,y0+.25,z),M.black());}
+function mirror(g,p,inD,outD,o={}){
+  const n=outD.clone().sub(inD).normalize(),r=o.r||1.3;
+  cyl(g,r,.45,p,n,o.mat||M.mirror(),null,32);
+  const pl=box(g,r*2.5,r*2.5,.9,p.clone().addScaledVector(n,-.75),M.black());pl.quaternion.setFromUnitVectors(Z,n);
+  if(o.post!==false)post(g,p.x-n.x*1.1,p.z-n.z*1.1,p.y-r*1.25,o.y0||0);
+  return n;
+}
+function lens(g,p,dir,r,o={}){
+  const t=o.t||Math.max(.3,r*.28);
+  const s=add(g,new THREE.SphereGeometry(1,32,16),M.glass(),p);s.scale.set(r,t,r);s.quaternion.setFromUnitVectors(Y,dir);
+  ring(g,r+.25,.32,p,dir,M.black());
+  if(o.post!==false)post(g,p.x,p.z,p.y-r-.5,o.y0||0);
+}
+function barrel(g,p,dir,r,len){cyl(g,r,len,p,dir,M.black());const d=dir.clone().normalize();[-1,1].forEach(s=>cyl(g,r*.82,.06,p.clone().addScaledVector(d,s*len/2+s*.03),d,M.glass()));ring(g,r+.05,.12,p.clone().addScaledVector(d,len*.3),d,M.alu());}
+function frame(g,x0,x1,z0,z1,hx0,hx1,hz0,hz1,y0,y1,mat){const h=y1-y0,yc=(y0+y1)/2;
+  box(g,x1-x0,h,hz0-z0,V((x0+x1)/2,yc,(z0+hz0)/2),mat);box(g,x1-x0,h,z1-hz1,V((x0+x1)/2,yc,(hz1+z1)/2),mat);
+  box(g,hx0-x0,h,hz1-hz0,V((x0+hx0)/2,yc,(hz0+hz1)/2),mat);box(g,x1-hx1,h,hz1-hz0,V((hx1+x1)/2,yc,(hz0+hz1)/2),mat);}
+function shell(g,c,s,o=.14,edge=0x5a6d82){const m=box(g,s.x,s.y,s.z,c,M.shell(o));const e=new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry),new THREE.LineBasicMaterial({color:edge,transparent:true,opacity:.75}));e.position.copy(c);g.add(e);return m;}
+function led(g,p,c){add(g,new THREE.SphereGeometry(.22,10,8),new THREE.MeshBasicMaterial({color:c}),p);}
+
+const parts={},pickables=[];
+function part(id,build){const g=new THREE.Group();g.userData.pid=id;build(g);scene.add(g);parts[id]=g;g.traverse(o=>{if(o.isMesh){o.userData.pid=id;pickables.push(o);}});return g;}
+
+/* textures */
+function holeTex(){const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d');x.fillStyle='#3a424c';x.fillRect(0,0,64,64);x.fillStyle='#1b2026';x.beginPath();x.arc(32,32,7,0,7);x.fill();const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(60,36);t.anisotropy=8;return t;}
+function scanTex(){const c=document.createElement('canvas');c.width=512;c.height=300;const x=c.getContext('2d');
+  x.fillStyle='#0c1014';x.fillRect(0,0,512,300);x.fillStyle='#000';x.fillRect(14,14,272,272);
+  let s=7;const rnd=()=>(s=(s*16807)%2147483647)/2147483647;
+  for(let i=0;i<5000;i++){x.fillStyle=`rgba(60,200,120,${rnd()*.25})`;x.fillRect(14+rnd()*272,14+rnd()*272,1,1);}
+  x.strokeStyle='rgba(70,190,120,.35)';x.lineWidth=2;for(let i=0;i<9;i++){x.beginPath();let px=14+rnd()*272,py=14+rnd()*272;x.moveTo(px,py);for(let k=0;k<6;k++){px+=(rnd()-.5)*70;py+=(rnd()-.5)*70;x.lineTo(px,py);}x.stroke();}
+  for(let i=0;i<46;i++){const px=26+rnd()*248,py=26+rnd()*248,r=4+rnd()*5;const gr=x.createRadialGradient(px,py,0,px,py,r*1.6);const a=.4+rnd()*.6;gr.addColorStop(0,`rgba(150,255,180,${a})`);gr.addColorStop(.5,`rgba(60,220,120,${a*.6})`);gr.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=gr;x.beginPath();x.arc(px,py,r*1.6,0,7);x.fill();}
+  x.fillStyle='#1d252e';[[300,14,198,60],[300,84,198,90],[300,184,198,102]].forEach(r=>x.fillRect(...r));
+  x.fillStyle='#f0b13c';x.fillRect(312,30,70,8);x.fillStyle='#43d495';x.fillRect(312,100,160,6);x.fillStyle='#ff9152';x.fillRect(312,116,110,6);
+  x.strokeStyle='#43d495';x.lineWidth=1.5;x.beginPath();for(let i=0;i<180;i++){const yy=250-Math.abs(Math.sin(i*.09))*30*rnd()-10*Math.exp(-((i-90)**2)/90);i?x.lineTo(310+i,yy):x.moveTo(310,yy);}x.stroke();
+  return new THREE.CanvasTexture(c);}
+
+/* ---- key coordinates (1 unit = 10 mm) ---- */
+const BH=10;               // beam height on table
+const AX=V(45,0,15);       // objective optical axis (x,z)
+const Yscan=52, Yfold=52, Ybfp=36.5, Ydich=44, Ysample=27.85;
+
+/* 29 table */
+part('table',g=>{
+  const top=std(0x3a424c,.3,.6,{map:holeTex()}),side=M.dark();
+  add(g,new THREE.BoxGeometry(150,4,90),[side,side,top,side,side,side],V(0,-2,0));
+  [[-62,-34],[62,-34],[-62,34],[62,34]].forEach(([x,z])=>{box(g,11,34,11,V(x,-21,z),M.color(0x2a3139));box(g,14,2,14,V(x,-39,z),M.black());});
+});
+/* 1 laser */
+part('laser',g=>{
+  box(g,50,15,20,V(-40,BH,-34),M.white());
+  box(g,50.2,2.2,20.2,V(-40,BH+3.5,-34),M.color(0x2c3e56));
+  [-15.4,-64.6].forEach(x=>box(g,1.2,15.6,20.6,V(x,BH,-34),M.black()));
+  cyl(g,1.1,1.8,V(-14.2,BH,-34),X,M.black());
+  box(g,9,1.8,.1,V(-24,BH+5.8,-23.9),M.color(0xf0b13c));
+  [[-60,-42],[-20,-42],[-60,-26],[-20,-26]].forEach(([x,z])=>box(g,3,2.5,3,V(x,1.25,z),M.black()));
+  cyl(g,.7,8,V(-64.6,BH-3,-38),X,M.black());
+});
+/* 2 HWP */
+part('hwp',g=>{const p=V(-9,BH,-34);ring(g,1.7,.5,p,X,M.black());cyl(g,1.2,.15,p,X,M.tint(0x9adcff,.5));box(g,2.4,3,3,V(-9,BH-3.4,-34),M.dark());box(g,2.2,2.2,2.2,V(-9,BH+1.6,-36.6),M.black());post(g,-9,-34,BH-4.9);});
+/* 3 Pockels */
+part('pockels',g=>{const p=V(3,BH,-34);cyl(g,2.1,9,p,X,M.color(0x2b3d52));[-1,1].forEach(s=>{cyl(g,1.35,.7,V(3+s*4.8,BH,-34),X,M.black());ring(g,1.35,.18,V(3+s*5.2,BH,-34),X,M.alu());});
+  cyl(g,.45,2.2,V(3,BH+2.9,-34),Y,M.alu());box(g,9,1,5.5,V(3,BH-2.6,-34),M.black());box(g,9,.8,7,V(3,BH-3.5,-34),M.alu());post(g,0,-34,BH-3.9);post(g,6,-34,BH-3.9);});
+/* 4 PBS + dump */
+part('pbs',g=>{const p=V(13,BH,-34);box(g,2.2,2.2,2.2,p,M.glass());const d=box(g,3.05,.1,.1,p,M.dich());d.rotation.y=Math.PI/4;
+  box(g,3,.4,3,V(13,BH-1.3,-34),M.black());box(g,3,.4,3,V(13,BH+1.3,-34),M.black());post(g,13,-34,BH-1.5);
+  const q=V(13,BH,-41);cyl(g,1.6,3,q,Z,M.black());for(let i=0;i<4;i++)ring(g,1.75,.22,V(13,BH,-42.2+i*.8),Z,M.dark());post(g,13,-41.6,BH-1.7);});
+/* 5 shutter */
+part('shutter',g=>{box(g,.9,5,4.2,V(18,BH+.6,-34),M.black());ring(g,.85,.18,V(18.5,BH,-34),X,M.alu());box(g,.6,1,1,V(18,BH+3.6,-35.4),M.dark());post(g,18,-34,BH-1.9);});
+/* 6 expander */
+part('expander',g=>{lens(g,V(22,BH,-34),X,.9);lens(g,V(31,BH,-34),X,1.9);});
+/* 7 steering mirrors */
+part('steer',g=>{mirror(g,V(36,BH,-34),X,Z);mirror(g,V(36,BH,-24),Z,X);});
+/* 8 periscope */
+part('periscope',g=>{
+  mirror(g,V(45,BH,-24),X,Y,{post:false});mirror(g,V(45,Yscan,-24),Y,Z,{post:false});
+  cyl(g,.8,55,V(48,27.5,-26.6),Y,M.steel());box(g,5,.8,5,V(48,.4,-26.6),M.black());
+  box(g,2.6,1.4,1.4,V(46.8,BH-1.8,-25.6),M.black());box(g,2.6,1.4,1.4,V(46.8,Yscan+1.8,-25.6),M.black());
+});
+/* 9 scanner */
+const SC=V(45,Yscan,-17);
+part('scanner',g=>{
+  box(g,8,1.2,6.4,V(44.2,Yscan-3,-17),M.black());
+  cyl(g,1.35,4.4,V(41.8,Yscan,-18.4),X,M.color(0x3a3f46));ring(g,1.38,.14,V(42.8,Yscan,-18.4),X,M.color(0xc9a24a));
+  const rm=box(g,.18,1.1,1.5,V(44.9,Yscan,-18.4),M.mirror());rm.rotation.y=Math.PI/4;
+  cyl(g,.95,3.4,V(45,Yscan+3.1,-15.8),Y,M.color(0x3a3f46));
+  const gm=box(g,1.4,1.4,.18,V(45,Yscan,-15.8),M.mirror());gm.rotation.x=Math.PI/4;
+  box(g,1.4,2.2,1.6,V(41.8,Yscan-1.6,-18.4),M.dark());
+});
+/* 10 scan lens, 11 tube lens */
+part('scanlens',g=>{barrel(g,V(45,Yscan,-10),Z,2,3.2);box(g,1.6,2.4,1.2,V(45,Yscan-3.2,-10),M.black());});
+part('tubelens',g=>{barrel(g,V(45,Yscan,5),Z,3.2,4.4);box(g,2,1.2,1.4,V(45,Yscan-3.8,5),M.black());});
+/* 12 fold mirror (slides out in widefield) */
+let foldMove;
+part('fold',g=>{foldMove=new THREE.Group();g.add(foldMove);mirror(foldMove,V(45,Yfold,15),Z,Y.clone().negate(),{post:false,r:1.9});
+  box(g,2,4.8,4.8,V(49,Yfold,16),M.dark());box(g,6,.5,1,V(46,Yfold+2.8,17),M.alu());});
+/* 13 camera */
+part('camera',g=>{barrel(g,V(45,59.6,15),Y,2.2,4);box(g,5.6,5.6,5.6,V(45,64.6,15),M.black());box(g,5.8,.4,5.8,V(45,61.9,15),M.alu());cyl(g,.4,2,V(45,67.6,15),Y,M.dark());});
+/* 14 housing / cages */
+part('housing',g=>{
+  shell(g,V(45,52,-1),V(10,10,40));
+  shell(g,V(55,Ydich,15),V(14,6,7));
+  [[41,48],[49,48],[41,56],[49,56]].forEach(([x,y])=>cyl(g,.22,39,V(x,y,-1),Z,M.steel(),null,10));
+  [[48.5,41.5],[48.5,46.5]].forEach(([x,y])=>{});
+  [[42,11.8],[42,18.2]].forEach(([y,z])=>cyl(g,.18,13.5,V(55,y,z),X,M.steel(),null,8));
+});
+/* 15 primary dichroic */
+part('dichroic',g=>{const p=V(45,Ydich,15);shell(g,p,V(6,6,6),.22);const d=box(g,5.4,5.4,.22,p,M.dich());d.quaternion.setFromUnitVectors(Z,V(1,-1,0).normalize());
+  ring(g,2.6,.3,V(45,Ydich-3.1,15),Y,M.black());ring(g,2.6,.3,V(45,Ydich+3.1,15),Y,M.black());});
+/* 16 piezo */
+part('piezo',g=>{cyl(g,3.2,3,V(45,39.5,15),Y,M.color(0x2a2f36));ring(g,3.22,.14,V(45,40.4,15),Y,M.color(0xc94a4a));box(g,1.4,1.4,2,V(45,39.5,18.6),M.dark());});
+/* 17 objective */
+part('objective',g=>{
+  cyl(g,2.8,3,V(45,36.5,15),Y,M.alu());cyl(g,2.25,4.4,V(45,32.8,15),Y,M.black());
+  cyl(g,2.27,.35,V(45,33.6,15),Y,M.color(0xe8e3d2));cyl(g,2.27,.25,V(45,32.6,15),Y,M.color(0x3f8fd8));
+  cyl(g,1.05,2.4,V(45,29.4,15),Y,M.black(),2.25);
+  cyl(g,1.06,.12,V(45,28.2,15),Y,M.glass());
+});
+/* 18 sample */
+part('sample',g=>{cyl(g,3.2,.9,V(45,27.0,15),Y,M.glass());cyl(g,2.4,.32,V(45,27.0,15),Y,M.color(0xb9787a));cyl(g,1.35,.36,V(45,28.0,15),Y,M.tint(0x7ec4ff,.3));
+  box(g,9,.5,9,V(45,26.35,15),M.alu());});
+/* 19 XY stage + bridge */
+part('stage',g=>{
+  frame(g,33,57,4,26,41,49,11,19,23.4,24.4,M.black());
+  frame(g,35,55,6,24,41.5,48.5,11.5,18.5,24.4,25.3,M.alu());
+  frame(g,36.5,53.5,7.5,22.5,42,48,12,18,25.3,26.1,M.black());
+  cyl(g,.9,4.5,V(57.4,24.85,20),X,M.dark());cyl(g,.8,4.5,V(51,25.7,24.6),Z,M.dark());
+  [[34.5,5.5],[55.5,5.5],[34.5,24.5],[55.5,24.5]].forEach(([x,z])=>{cyl(g,1,23.4,V(x,11.7,z),Y,M.steel());box(g,3.4,.6,3.4,V(x,.3,z),M.black());});
+});
+/* 20 Z column */
+part('zcol',g=>{box(g,5,66,5,V(28,33,15),M.color(0x262d35));box(g,14,1.4,16,V(28,.7,15),M.black());box(g,1,58,2.2,V(30.7,36,15),M.steel());
+  box(g,3,12,7,V(32.3,52,15),M.alu());box(g,7.6,7,7,V(36.6,52,15),M.black());cyl(g,1.9,4,V(28,68,15),Y,M.dark());
+  const br=box(g,1.4,30,1.4,V(22,15,15),M.steel());br.rotation.z=-.32;});
+/* 21 IR block, 22 collection lens, 23 secondary dichroic, 24 filters */
+part('irblock',g=>{const p=V(49.2,Ydich,15);cyl(g,2.3,.25,p,X,M.tint(0x5c0d18,.85));ring(g,2.4,.25,p,X,M.black());});
+part('collect',g=>{lens(g,V(52,Ydich,15),X,2.6,{post:false});});
+part('dichroic2',g=>{const p=V(57,Ydich,15);const d=box(g,3.8,3.8,.2,p,M.dich());d.quaternion.setFromUnitVectors(Z,V(-1,0,1).normalize());box(g,4.4,.4,4.4,V(57,Ydich-2.3,15),M.black());});
+part('emf',g=>{const a=V(57,Ydich,19.7),b=V(61,Ydich,15);cyl(g,1.6,.25,a,Z,M.tint(0x2fae6e,.8));ring(g,1.7,.28,a,Z,M.black());cyl(g,1.6,.25,b,X,M.tint(0xd8572a,.8));ring(g,1.7,.28,b,X,M.black());});
+/* 25/26 PMTs */
+function pmt(g,p,dir,stripe){const L=7,d=dir.clone().normalize();const b=box(g,4.6,4.6,L,p,M.black());b.quaternion.setFromUnitVectors(Z,d);
+  cyl(g,1.35,.2,p.clone().addScaledVector(d,-L/2-.1),d,M.color(0xb98a3e));ring(g,1.6,.22,p.clone().addScaledVector(d,-L/2-.1),d,M.alu());
+  const s=box(g,4.65,.5,4.65,p.clone().addScaledVector(d,-1.5),M.color(stripe));s.quaternion.setFromUnitVectors(Y,d);
+  cyl(g,.35,2.2,p.clone().addScaledVector(d,L/2+1.1),d,M.dark());}
+part('pmt1',g=>pmt(g,V(57,Ydich,24.6),Z,0x43d495));
+part('pmt2',g=>pmt(g,V(66.6,Ydich,15),X,0xff9152));
+/* 27 condenser, 28 transmitted PMT */
+part('condenser',g=>{cyl(g,2.2,3.6,V(45,21.1,15),Y,M.black());add(g,new THREE.SphereGeometry(1.7,24,12,0,Math.PI*2,0,Math.PI/2),M.glass(),V(45,22.9,15));
+  ring(g,2.3,.22,V(45,21.6,15),Y,M.alu());box(g,8,1.2,1.6,V(49.5,20,15),M.black());post(g,53.6,15,19.4);});
+part('transpmt',g=>{pmt(g,V(45,10.2,15),Y,0x7f97ff);cyl(g,1.4,.22,V(45,14.4,15),Y,M.tint(0x5b74e0,.85));box(g,3,6.3,3,V(45,3.15,15),M.black());});
+/* 30 enclosure */
+part('enclosure',g=>{shell(g,V(46.5,37.5,-3),V(52,75,74),.42,0x8a6a2c);});
+parts.enclosure.visible=false;
+/* 31 electronics */
+part('electronics',g=>{
+  box(g,22,9,16,V(-58,4.5,30),M.color(0x232a32));for(let i=0;i<8;i++)box(g,2.2,7.6,.3,V(-67.6+i*2.7,4.6,38.1),M.color(i%3?0x3a444f:0x56636f));
+  box(g,16,5,12,V(-58,11.5,30),M.color(0x2e3742));led(g,V(-63,12.2,36.1),0x43d495);led(g,V(-61.5,12.2,36.1),0x43d495);
+  box(g,12,4,10,V(-40,2,34),M.color(0x2e3742));box(g,14,7,12,V(-40,7.5,34),M.color(0x3b2f2a));
+  led(g,V(-44,9,40.1),0xff4d5e);led(g,V(-36,3,39.1),0xf0b13c);box(g,5,.6,.15,V(-38,9.5,40.05),M.color(0xf0b13c));
+  box(g,8,3,8,V(-24,1.5,38),M.color(0x2e3742));led(g,V(-26,2,42.1),0x43d495);
+});
+/* 32 PC */
+part('pc',g=>{const s=new THREE.Group();s.position.set(-8,0,30);s.rotation.y=-.55;g.add(s);
+  box(s,6,.5,5,V(0,.25,0),M.black());box(s,.9,7,.9,V(0,3.8,0),M.black());box(s,22,13,.8,V(0,12.5,0),M.black());
+  const scr=new THREE.Mesh(new THREE.PlaneGeometry(20.8,11.8),new THREE.MeshBasicMaterial({map:scanTex(),toneMapped:false}));scr.position.set(0,12.5,.42);s.add(scr);
+  box(s,13,.5,4.2,V(0,.25,7),M.color(0x2a3139));});
+
+/* ---------------- beams ---------------- */
+const beamGroups={exc:new THREE.Group(),em:new THREE.Group(),fwd:new THREE.Group(),wf:new THREE.Group()};
+Object.values(beamGroups).forEach(b=>scene.add(b));
+function beam(grp,color,rA,rB,op=1){
+  const g=new THREE.Group();
+  const core=new THREE.Mesh(new THREE.CylinderGeometry(rB==null?rA:rB,rA,1,16,1,true),new THREE.MeshBasicMaterial({color,transparent:op<1,opacity:op,toneMapped:false,depthWrite:op>=1,side:THREE.DoubleSide}));
+  const halo=new THREE.Mesh(new THREE.CylinderGeometry((rB==null?rA:rB)*2.6,rA*2.6,1,16,1,true),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.14*op,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}));
+  g.add(core,halo);grp.add(g);
+  const d=new THREE.Vector3();
+  return {set(a,b){d.subVectors(b,a);const L=d.length()||1e-4;g.position.addVectors(a,b).multiplyScalar(.5);g.quaternion.setFromUnitVectors(Y,d.divideScalar(L));g.scale.set(1,L,1);}};
+}
+const C={nir:0xff4d5e,g:0x43d495,r:0xff9152,shg:0x7f97ff,wf:0xefd9a6};
+// static excitation
+[[V(-14,BH,-34),V(22,BH,-34),.13],[V(22,BH,-34),V(31,BH,-34),.13,.3],[V(31,BH,-34),V(36,BH,-34),.3],[V(36,BH,-34),V(36,BH,-24),.3],
+ [V(36,BH,-24),V(45,BH,-24),.3],[V(45,BH,-24),V(45,Yscan,-24),.3],[V(45,Yscan,-24),SC,.3]].forEach(([a,b,r1,r2])=>beam(beamGroups.exc,C.nir,r1,r2).set(a,b));
+beam(beamGroups.exc,C.nir,.1,.1,.35).set(V(13,BH,-34),V(13,BH,-39.4));
+// dynamic excitation (scan)
+const dyn={sa:beam(beamGroups.exc,C.nir,.28),ab:beam(beamGroups.exc,C.nir,.2),bc:beam(beamGroups.exc,C.nir,.5),cd:beam(beamGroups.exc,C.nir,.5),foc:beam(beamGroups.exc,C.nir,.03,.55)};
+// emission (non-descanned, static)
+const F0=V(45,Ysample,15);
+beam(beamGroups.em,C.g,.32,.32,.85).set(V(44.75,Ysample,15),V(44.75,Ydich,15));
+beam(beamGroups.em,C.r,.32,.32,.85).set(V(45.25,Ysample,15),V(45.25,Ydich,15));
+beam(beamGroups.em,C.g,.3,.3,.9).set(V(44.75,Ydich,14.75),V(57,Ydich,14.75));
+beam(beamGroups.em,C.r,.3,.3,.9).set(V(45.25,Ydich,15.25),V(57,Ydich,15.25));
+beam(beamGroups.em,C.g,.32).set(V(57,Ydich,15),V(57,Ydich,21));
+beam(beamGroups.em,C.r,.32).set(V(57,Ydich,15),V(63,Ydich,15));
+beam(beamGroups.fwd,C.shg,.03,.4,.9).set(V(45,Ysample-.3,15),V(45,22.5,15));
+beam(beamGroups.fwd,C.shg,.4,.4,.9).set(V(45,22.5,15),V(45,13.6,15));
+beam(beamGroups.wf,C.wf,.5,.5,.75).set(V(45,20,15),V(45,61.5,15));
+beamGroups.wf.visible=false;
+// raster trail on sample
+const NT=420,trailPos=new Float32Array(NT*3);let trailN=0;
+const trailGeo=new THREE.BufferGeometry();trailGeo.setAttribute('position',new THREE.BufferAttribute(trailPos,3));trailGeo.setDrawRange(0,0);
+const trail=new THREE.Line(trailGeo,new THREE.LineBasicMaterial({color:C.nir,transparent:true,opacity:.85}));scene.add(trail);
+
+/* ---------------- pins ---------------- */
+const pinGroup=new THREE.Group();scene.add(pinGroup);
+const pinEls={};
+const PIN_OVERRIDE={table:V(-32,.6,12),enclosure:V(70,75,32),housing:V(45,57.6,-12),electronics:V(-58,15,30),pc:V(-8,20,30),dichroic:V(41.6,Ydich+3.4,15),
+  irblock:V(49.2,Ydich+3,15),collect:V(52,Ydich+3.4,15),dichroic2:V(57,Ydich+3.3,15),emf:V(61,Ydich+2.4,15),piezo:V(41.6,39.5,15),objective:V(42,33,15),sample:V(41.4,27.3,15),stage:V(36,26.5,7),
+  condenser:V(41.5,21.5,15),transpmt:V(41.8,10,15),zcol:V(28,70.6,15),fold:V(49,Yfold+3,16),scanlens:V(45,Yscan+2.8,-10),tubelens:V(45,Yscan+4,5),scanner:V(45,Yscan+5.4,-15.8),camera:V(45,68,15),
+  steer:V(36,BH+3,-29),periscope:V(48,56,-26.6),pmt1:V(57,Ydich+3,24.6),pmt2:V(66.6,Ydich+3,15)};
+PARTS.forEach(p=>{const el=document.createElement('div');el.className='pin';el.textContent=p.n;el.title=p.zh;
+  el.addEventListener('click',e=>{e.stopPropagation();select(p.id,true);});
+  const o=new THREE.CSS2DObject(el);
+  if(PIN_OVERRIDE[p.id])o.position.copy(PIN_OVERRIDE[p.id]);else{const bb=new THREE.Box3().setFromObject(parts[p.id]);const c=bb.getCenter(V(0,0,0));o.position.set(c.x,bb.max.y+1.2,c.z);}
+  o.userData.pid=p.id;pinGroup.add(o);pinEls[p.id]={el,o};});
+
+/* ---------------- UI ---------------- */
+const listEl=document.getElementById('list'),detailEl=document.getElementById('detail'),side=document.getElementById('side');
+const itemEls={};
+Object.entries(GROUPS).forEach(([k,name])=>{
+  const h=document.createElement('div');h.className='grp';h.textContent=name;listEl.appendChild(h);
+  const l=document.createElement('div');l.className='list';listEl.appendChild(l);
+  PARTS.filter(p=>p.g===k).forEach(p=>{const b=document.createElement('button');b.className='item';b.id='it-'+p.id;
+    b.innerHTML=`<span class="n">${pad(p.n)}</span><span class="t">${p.zh}<small>${p.en}</small></span>`;
+    b.addEventListener('click',()=>{select(p.id,true);if(innerWidth<=880)detailEl.scrollIntoView({behavior:reduce?'auto':'smooth',block:'start'});});
+    l.appendChild(b);itemEls[p.id]=b;});
+});
+function renderDetail(p){
+  detailEl.innerHTML=`<div class="d-head"><span class="d-num">${pad(p.n)}</span><div><h2>${p.zh}</h2><p class="d-en">${p.en}</p></div></div>
+  <span class="d-grp">${GROUPS[p.g]}</span>
+  <h3>作用</h3><p>${p.role}</p>
+  <h3>参数与参考型号</h3><ul>${p.spec.map(s=>`<li>${s}</li>`).join('')}</ul>
+  <h3>搭建要点</h3><p>${p.tip}</p>`;
+  detailEl.scrollTop=0;
+}
+const selBox=new THREE.BoxHelper(undefined,0xf0b13c);selBox.visible=false;scene.add(selBox);
+let selected=null;
+function setGlow(id,on){if(!parts[id])return;parts[id].traverse(o=>{if(o.isMesh){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>{if(m.emissive){m.emissive.setHex(on?0xf0b13c:0);m.emissiveIntensity=on?.28:1;}});}});}
+function select(id,fly){
+  if(selected){setGlow(selected,false);itemEls[selected].classList.remove('on');pinEls[selected].el.classList.remove('on');}
+  selected=id;const p=byId[id];setGlow(id,true);itemEls[id].classList.add('on');pinEls[id].el.classList.add('on');
+  renderDetail(p);
+  if(id==='enclosure'&&!parts.enclosure.visible)toggle('tEncl',true);
+  if(id==='housing'&&!parts.housing.visible)toggle('tShell',true);
+  selBox.setFromObject(parts[id]);selBox.visible=true;
+  if(fly)flyTo(id);
+}
+let tween=null;
+function flyTo(id){
+  const bb=new THREE.Box3().setFromObject(parts[id]);const c=bb.getCenter(V(0,0,0));const s=bb.getSize(V(0,0,0)).length();
+  const dist=Math.max(s*1.9,16);const dir=camera.position.clone().sub(controls.target).normalize();
+  startTween(c,c.clone().addScaledVector(dir,dist));
+}
+function startTween(tgt,pos){if(reduce){controls.target.copy(tgt);camera.position.copy(pos);return;}tween={t0:performance.now(),d:750,ft:controls.target.clone(),fp:camera.position.clone(),tt:tgt,tp:pos};}
+
+const state={beam:true,scan:!reduce,pin:true,shell:true,encl:false,mode:'2p'};
+function toggle(btnId,force){const b=document.getElementById(btnId);const v=force!=null?force:b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',String(v));
+  ({tBeam:()=>state.beam=v,tScan:()=>state.scan=v,tPin:()=>state.pin=v,tShell:()=>{state.shell=v;parts.housing.visible=v;},tEncl:()=>{state.encl=v;parts.enclosure.visible=v;}})[btnId]();
+  applyVis();}
+['tBeam','tScan','tPin','tShell','tEncl'].forEach(id=>document.getElementById(id).addEventListener('click',()=>toggle(id)));
+document.getElementById('tScan').setAttribute('aria-pressed',String(state.scan));
+document.getElementById('tReset').addEventListener('click',()=>startTween(HOME.tgt.clone(),HOME.pos.clone()));
+function setMode(m){state.mode=m;document.getElementById('m2p').setAttribute('aria-pressed',String(m==='2p'));document.getElementById('mwf').setAttribute('aria-pressed',String(m==='wf'));applyVis();}
+document.getElementById('m2p').addEventListener('click',()=>setMode('2p'));
+document.getElementById('mwf').addEventListener('click',()=>setMode('wf'));
+function applyVis(){
+  const two=state.mode==='2p';
+  beamGroups.exc.visible=state.beam&&two;beamGroups.em.visible=state.beam&&two;beamGroups.fwd.visible=state.beam&&two;beamGroups.wf.visible=state.beam&&!two;
+  trail.visible=state.beam&&two&&state.scan;
+  PARTS.forEach(p=>{pinEls[p.id].o.visible=state.pin&&parts[p.id].visible;});
+}
+applyVis();
+
+/* hover + pick */
+const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),tip=document.getElementById('tip');
+function visibleChain(o){while(o){if(!o.visible)return false;o=o.parent;}return true;}
+function pickAt(cx,cy){const r=renderer.domElement.getBoundingClientRect();ndc.set((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1);ray.setFromCamera(ndc,camera);
+  let fb=null;for(const h of ray.intersectObjects(pickables,false)){if(!visibleChain(h.object))continue;const id=h.object.userData.pid;if(id==='housing'||id==='enclosure'||id==='table'){fb=fb||id;continue;}return id;}return fb;}
+let down=null;
+renderer.domElement.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};});
+renderer.domElement.addEventListener('pointerup',e=>{if(down&&Math.hypot(e.clientX-down.x,e.clientY-down.y)<5){const id=pickAt(e.clientX,e.clientY);if(id)select(id,true);}down=null;});
+let hoverRaf=0;
+renderer.domElement.addEventListener('pointermove',e=>{if(e.buttons||e.pointerType==='touch'){tip.hidden=true;return;}if(hoverRaf)return;hoverRaf=requestAnimationFrame(()=>{hoverRaf=0;
+  const id=pickAt(e.clientX,e.clientY);const vr=viewer.getBoundingClientRect();
+  if(id){const p=byId[id];tip.innerHTML=`<b>${pad(p.n)}</b>${p.zh}`;tip.style.left=(e.clientX-vr.left)+'px';tip.style.top=(e.clientY-vr.top)+'px';tip.hidden=false;renderer.domElement.style.cursor='pointer';}
+  else{tip.hidden=true;renderer.domElement.style.cursor='';}});});
+renderer.domElement.addEventListener('pointerleave',()=>{tip.hidden=true;});
+
+/* resize */
+function resize(){const w=host.clientWidth,h=host.clientHeight;if(!w||!h)return;renderer.setSize(w,h);labels.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(host);resize();
+
+/* scan geometry: chief ray through 4f relay, pivoting at objective BFP */
+const A=V(0,0,0),B=V(0,0,0),Cc=V(0,0,0),BFP=V(45,Ybfp,15),FOC=V(0,0,0);
+const dTL=(15-5)+(Yfold-Ybfp);
+let foldX=0,lastPhase=0,t0=performance.now();
+function updateScan(t){
+  let ox=0,oy=0,phase=0;
+  if(state.scan&&state.mode==='2p'){ox=1.05*Math.sin(2*Math.PI*2.4*t);phase=(t/6)%1;oy=.85*(2*phase-1);}
+  A.set(45+ox,Yscan+oy,-10);B.set(45+ox,Yscan+oy,5);
+  const k=1-10/dTL;Cc.set(45+ox*k,Yfold+oy*k,15);
+  FOC.set(45-ox*.55,Ysample+.02,15-oy*.55);
+  dyn.sa.set(SC,A);dyn.ab.set(A,B);dyn.bc.set(B,Cc);dyn.cd.set(Cc,BFP);dyn.foc.set(FOC,BFP);
+  if(state.scan&&state.mode==='2p'){
+    if(phase<lastPhase)trailN=0;lastPhase=phase;
+    if(trailN<NT){trailPos.set([FOC.x,Ysample+.04,FOC.z],trailN*3);trailN++;trailGeo.setDrawRange(0,trailN);trailGeo.attributes.position.needsUpdate=true;}
+  }else{trailN=0;trailGeo.setDrawRange(0,0);}
+}
+function loop(now){
+  requestAnimationFrame(loop);
+  const t=(now-t0)/1000;
+  updateScan(t);
+  const target=state.mode==='wf'?-3.8:0;foldX+=(target-foldX)*(reduce?1:.08);foldMove.position.x=foldX;
+  if(tween){const u=Math.min(1,(now-tween.t0)/tween.d),e=u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2;controls.target.lerpVectors(tween.ft,tween.tt,e);camera.position.lerpVectors(tween.fp,tween.tp,e);if(u>=1)tween=null;}
+  if(selected==='fold')selBox.setFromObject(parts.fold);
+  controls.update();renderer.render(scene,camera);labels.render(scene,camera);
+}
+select('scanner',false);
+requestAnimationFrame(loop);
+
+/* ---------------- calculator ---------------- */
+const ids=['cD','cFs','cFt','cM','cL','cNA','cTh','cLam','cN'],out=document.getElementById('out');
+function calc(){
+  const v={};ids.forEach(i=>v[i]=parseFloat(document.getElementById(i).value));
+  if(ids.some(i=>!(v[i]>0))){out.innerHTML='<div class="row"><span>请输入正数</span><span>—</span></div>';return;}
+  const Db=v.cD*v.cFt/v.cFs,fo=v.cL/v.cM,P=2*v.cNA*fo,fill=Db/P,T=1-Math.exp(-2*(P/Db)**2);
+  const thB=v.cTh*v.cFs/v.cFt*Math.PI/180,fov=2*fo*Math.tan(thB/2);
+  const NAe=v.cNA*Math.min(1,fill),lam=v.cLam/1000,k=Math.sqrt(2*Math.LN2);
+  let res='—',resz='—';
+  if(NAe<v.cN){const wxy=NAe>.7?.325*lam/(Math.SQRT2*Math.pow(NAe,.91)):.32*lam/(Math.SQRT2*NAe);const wz=.532*lam/Math.SQRT2/(v.cN-Math.sqrt(v.cN*v.cN-NAe*NAe));res=(wxy*k).toFixed(2)+' µm';resz=(wz*k).toFixed(2)+' µm';}
+  const pill=fill<.8?'<span class="pill warn">欠填充</span>':fill<=1.25?'<span class="pill ok">匹配</span>':'<span class="pill bad">过填充</span>';
+  const rows=[['物镜焦距 f<sub>obj</sub>',fo.toFixed(2)+' mm'],['物镜后孔径 2·NA·f',P.toFixed(1)+' mm'],['到达 BFP 的光束直径',Db.toFixed(1)+' mm'],
+    ['填充比',fill.toFixed(2)+pill],['后孔径功率透过（高斯）',(T*100).toFixed(0)+' %'],['样品面视场',(fov*1000).toFixed(0)+' µm'],
+    ['横向 FWHM（估计）',res],['轴向 FWHM（估计）',resz]];
+  out.innerHTML=rows.map(r=>`<div class="row"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('');
+}
+ids.forEach(i=>document.getElementById(i).addEventListener('input',calc));calc();
+})();
+</script>
+
+</html>

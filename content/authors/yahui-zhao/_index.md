@@ -1,5 +1,6 @@
 ---
 # Portrait: avatar.jpg in this folder.
+slug: yahui-zhao
 title: Yahui Zhao
 first_name: Yahui
 last_name: Zhao

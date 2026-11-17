@@ -2,7 +2,7 @@
 {{- $p := . -}}
 {{- $img := ($p.Resources.ByType "image").GetMatch "*featured*" -}}
 <article class="lab-news">
-  <div class="lab-news-date">{{ $p.Date.Format ($p.Params.date_format | default "2 Jan 2006") }}</div>
+  <div class="lab-news-date">{{ $p.Date.Format ($p.Params.date_format | default site.Params.lab_date_format) }}</div>
   <div>
     <h3><a href="{{ $p.RelPermalink }}">{{ $p.Title | markdownify }}</a></h3>
     <p>{{ $p.Params.summary | default $p.Summary | plainify | truncate 180 }}</p>

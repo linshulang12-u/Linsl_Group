@@ -2,6 +2,7 @@
 # ═══════════ PERSON PROFILE ═══════════
 # Folder name = the person's name in lower case with hyphens (shulang-lin).
 # Put a portrait named avatar.jpg (or .png) in this folder.
+slug: shulang-lin
 title: Shulang Lin
 first_name: Shulang
 last_name: Lin
@@ -46,16 +47,14 @@ education:
       year: 2016
 
 # Links shown under the name. Delete the lines you do not need.
-social: []
-#  - icon: envelope
-#    icon_pack: fas
-#    link: 'mailto:name@university.edu'
+social:
+  - icon: envelope
+    icon_pack: fas
+    label: Email
+    link: 'mailto:linshulang@jlu.edu.cn'
 #  - icon: google-scholar
 #    icon_pack: ai
 #    link: https://scholar.google.com/citations?user=XXXXXXXX
-#  - icon: orcid
-#    icon_pack: ai
-#    link: https://orcid.org/0000-0000-0000-0000
 
 highlight_name: true
 ---

@@ -11,15 +11,15 @@
       {{ range $s.items }}
       <div class="lab-card lab-card--media">
         {{ with .image }}{{ with $.Resources.GetMatch . }}{{ $t := .Fill "720x450 TopLeft" }}<img class="lab-card-img" src="{{ $t.RelPermalink }}" alt="" loading="lazy">{{ end }}{{ end }}
-        <h3 class="lab-h3">{{ .title }}{{ if .draft }} <span class="lab-draft">Placeholder</span>{{ end }}</h3>
+        <h3 class="lab-h3">{{ .title }}{{ if .draft }} <span class="lab-draft">{{ i18n "lab_placeholder" }}</span>{{ end }}</h3>
         {{ with .subtitle }}<p style="font-weight:600;color:var(--lab-text);margin-bottom:6px">{{ . }}</p>{{ end }}
         <p>{{ .text | markdownify }}</p>
-        {{ with .links }}<div class="lab-links">{{ range . }}<a href="{{ if hasPrefix .url "http" }}{{ .url }}{{ else }}{{ .url | relURL }}{{ end }}"{{ if or (hasPrefix .url "http") (hasPrefix .url "demos/") }} target="_blank" rel="noopener"{{ end }}>{{ .name }}</a>{{ end }}</div>{{ end }}
+        {{ with .links }}<div class="lab-links">{{ range . }}<a href="{{ if hasPrefix .url "http" }}{{ .url }}{{ else if or (hasPrefix .url "demos/") (hasPrefix .url "tutorials/") }}{{ .url | relURL }}{{ else }}{{ .url | relLangURL }}{{ end }}"{{ if or (hasPrefix .url "http") (hasPrefix .url "demos/") (hasPrefix .url "tutorials/") }} target="_blank" rel="noopener"{{ end }}>{{ .name }}</a>{{ end }}</div>{{ end }}
       </div>
       {{ end }}
     </div>
     {{ else }}
-    <p class="lab-muted">Coming soon.</p>
+    <p class="lab-muted">{{ i18n "lab_coming_soon" }}</p>
     {{ end }}
   </div>
 </section>

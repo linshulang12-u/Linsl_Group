@@ -1,5 +1,6 @@
 ---
 # Portrait: avatar.jpg in this folder.
+slug: chen-chen
 title: Chen Chen
 first_name: Chen
 last_name: Chen

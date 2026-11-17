@@ -1,0 +1,21 @@
+{{/* Collaborator logo strip. Data: data/partners.yaml, logos: assets/media/partners/ */}}
+{{ $zh := eq site.Language.Lang "zh" }}
+{{ if site.Data.partners.partners }}
+<section class="lab-section lab-partners-section" id="partners">
+  <div class="lab-wrap">
+    <p class="lab-label">{{ with .n }}<span class="n">{{ . }}</span> · {{ end }}{{ i18n "lab_partners" }}</p>
+    <h2 class="lab-h2">{{ i18n "lab_partners_title" }}</h2>
+    <ul class="lab-partners">
+      {{ range site.Data.partners.partners }}
+      {{ $name := cond $zh (.name_zh | default .name) .name }}
+      <li>
+        {{ with .url }}<a href="{{ . }}" target="_blank" rel="noopener" title="{{ $name }}">{{ else }}<div title="{{ $name }}">{{ end }}
+        {{ with resources.Get (printf "media/partners/%s" .logo) }}{{ $l := .Resize "x160" }}<img src="{{ $l.RelPermalink }}" alt="{{ $name }}" loading="lazy">{{ end }}
+        <span>{{ $name }}</span>
+        {{ if .url }}</a>{{ else }}</div>{{ end }}
+      </li>
+      {{ end }}
+    </ul>
+  </div>
+</section>
+{{ end }}

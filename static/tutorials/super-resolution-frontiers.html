@@ -1,0 +1,1823 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>超分辨前沿详解</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;900&family=Noto+Sans+SC:wght@400;500;700&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: companion to the handbook. Route bands (A–D) hold dossiers: a 40rem reading column beside a sticky spec sheet; instrument panels break out full width with dark camera-feed screens in both themes */
+:root{
+  --paper:#EDF1EF; --paper-2:#E2E8E5; --card:#F6F8F7;
+  --ink:#111915; --ink-2:#4A5852; --rule:#C6D1CB;
+  --signal:#07714A; --exc:#2959BE; --dep:#B8392A;
+  --ok:#1B7444; --warn:#8F5E00; --bad:#AE3328;
+  --scope:#050908; --scope-2:#0C1411; --scope-ink:#D2E3D9; --scope-dim:#7E968A;
+  --font-display:"Noto Serif SC","Songti SC","STSong",serif;
+  --font-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --font-math:"STIX Two Text","Cambria Math","Times New Roman",serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --measure:40rem; --wide:74rem; --nav-h:52px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0C1210; --paper-2:#131B18; --card:#17201C;
+    --ink:#E0E8E3; --ink-2:#98A8A0; --rule:#2A3631;
+    --signal:#4CC88C; --exc:#82AAF5; --dep:#EE8571;
+    --ok:#5BC98B; --warn:#E2AA47; --bad:#F07C6D;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0C1210; --paper-2:#131B18; --card:#17201C;
+  --ink:#E0E8E3; --ink-2:#98A8A0; --rule:#2A3631;
+  --signal:#4CC88C; --exc:#82AAF5; --dep:#EE8571;
+  --ok:#5BC98B; --warn:#E2AA47; --bad:#F07C6D;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{background:var(--paper);color:var(--ink);font:400 16.5px/1.85 var(--font-body);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--paper)}
+a{color:var(--signal);text-underline-offset:3px;text-decoration-thickness:1px}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:2px solid var(--signal);outline-offset:2px;border-radius:3px}
+h1,h2,h3,h4{text-wrap:balance;margin:0}
+p{margin:0}
+ul,ol{margin:0}
+.wrap{max-width:var(--wide);margin-inline:auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.m{font-family:var(--font-math);font-size:1.08em;white-space:nowrap}
+.m i{font-style:italic}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;line-height:1.15;margin-inline:.15em}
+.frac>span:first-child{border-bottom:1px solid currentColor;padding-inline:.2em}
+.frac>span{padding-inline:.1em}
+
+/* nav */
+.strip{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--rule)}
+.strip-in{display:flex;align-items:center;gap:18px;height:var(--nav-h)}
+.brand{font:600 15px/1 var(--font-display);color:var(--ink);text-decoration:none;white-space:nowrap;flex:none}
+.toc{display:flex;gap:4px;list-style:none;margin:0;padding:0;overflow-x:auto;scrollbar-width:none;min-width:0;flex:1}
+.toc::-webkit-scrollbar{display:none}
+.toc a{display:block;padding:6px 10px;border-radius:999px;font-size:13.5px;line-height:1.2;color:var(--ink-2);text-decoration:none;white-space:nowrap}
+.toc a b{font:500 12px/1 var(--font-mono);margin-right:5px;color:var(--signal)}
+.toc a:hover{color:var(--ink);background:var(--paper-2)}
+.toc a[aria-current="true"]{color:var(--paper);background:var(--ink)}
+.toc a[aria-current="true"] b{color:var(--paper)}
+
+/* hero */
+.hero{padding-block:clamp(36px,6vw,64px) 12px;display:grid;gap:28px}
+.hero-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(20px,4vw,56px);align-items:end}
+.eyebrow{font:500 12px/1.4 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);margin-bottom:14px}
+.hero h1{font:900 clamp(3.2rem,9vw,6.4rem)/.98 var(--font-display);letter-spacing:.01em}
+.hero h1 span{display:block;color:var(--signal)}
+.hero-lead{display:grid;gap:12px;font-size:17px}
+.hero-lead .hint{font-size:15px;color:var(--ink-2)}
+.index-label{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font:500 11.5px/1 var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+
+/* tables */
+.tablewrap{overflow-x:auto;border:1px solid var(--rule);border-radius:9px;background:var(--card)}
+table{border-collapse:collapse;width:100%;min-width:780px;font-size:14px;line-height:1.55}
+th,td{padding:9px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--rule)}
+thead th{font:500 12px/1.4 var(--font-mono);letter-spacing:.06em;color:var(--ink-2);background:var(--paper-2);white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+td.code{font:500 13px/1.55 var(--font-mono);color:var(--signal);white-space:nowrap}
+td.name{font-weight:700;white-space:nowrap}
+td.name a{color:var(--ink);text-decoration:none}
+td.name a:hover{color:var(--signal);text-decoration:underline}
+tr.group td{background:var(--paper-2);font:500 12px/1.4 var(--font-mono);letter-spacing:.08em;color:var(--ink-2);padding-block:6px}
+.tags{display:flex;flex-wrap:wrap;gap:4px}
+.tag{font:500 11.5px/1 var(--font-body);padding:4px 7px;border-radius:4px;border:1px solid var(--rule);color:var(--ink-2);white-space:nowrap}
+.tag.k{border-color:color-mix(in srgb,var(--signal) 55%,var(--rule));color:var(--signal)}
+
+/* routes */
+.route{padding-block:80px 0;scroll-margin-top:calc(var(--nav-h) + env(safe-area-inset-top,0px))}
+.route-head{display:grid;grid-template-columns:8.5rem minmax(0,var(--measure));column-gap:2.5rem;row-gap:14px;padding-bottom:28px;border-bottom:2px solid var(--ink)}
+.route-letter{grid-row:1/span 3;font:900 112px/.82 var(--font-display);color:var(--signal)}
+.route-head .eyebrow{margin:0}
+.route-head h2{font:600 clamp(1.8rem,3.6vw,2.4rem)/1.3 var(--font-display)}
+.route-head p{font-size:17px}
+
+/* dossiers */
+.dossier{display:grid;grid-template-columns:minmax(0,var(--measure)) minmax(0,18rem);column-gap:clamp(24px,4vw,56px);row-gap:22px;padding-block:52px 12px;border-bottom:1px solid var(--rule);scroll-margin-top:calc(var(--nav-h) + env(safe-area-inset-top,0px));justify-content:space-between}
+.d-head{grid-column:1/-1;display:grid;gap:10px}
+.d-code{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.d-code b{font:500 13px/1 var(--font-mono);color:var(--paper);background:var(--signal);padding:5px 8px;border-radius:4px}
+.d-code span{font:400 12.5px/1.5 var(--font-mono);color:var(--ink-2);letter-spacing:.02em}
+.d-head h3{font:600 clamp(1.45rem,2.8vw,1.85rem)/1.35 var(--font-display)}
+.d-thesis{font-size:17.5px;line-height:1.8;max-width:var(--measure)}
+.d-body{grid-column:1;grid-row:2;display:grid;gap:16px;align-content:start;min-width:0}
+.d-body h4{font:700 16.5px/1.5 var(--font-body);margin-top:10px;display:flex;align-items:baseline;gap:10px}
+.d-body h4::before{content:"";width:14px;height:2px;background:var(--signal);transform:translateY(-4px);flex:none}
+.d-body ul,.d-body ol{padding-left:1.2em;display:grid;gap:7px}
+.d-body li::marker{color:var(--ink-2)}
+.spec{grid-column:2;grid-row:2;align-self:start;position:sticky;top:calc(var(--nav-h) + env(safe-area-inset-top,0px) + 18px);background:var(--card);border:1px solid var(--rule);border-radius:9px;overflow:hidden}
+.spec-t{font:500 11px/1 var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);padding:11px 14px;border-bottom:1px solid var(--rule);background:var(--paper-2)}
+.spec dl{margin:0;display:grid}
+.spec dl>div{display:grid;gap:2px;padding:9px 14px;border-bottom:1px solid var(--rule)}
+.spec dl>div:last-child{border-bottom:0}
+.spec dt{font-size:12px;line-height:1.4;color:var(--ink-2)}
+.spec dd{margin:0;font-size:14px;line-height:1.55}
+.spec dd .mono{font-size:13.5px}
+.spec dd a{word-break:break-word}
+.d-wide{grid-column:1/-1;min-width:0}
+.dossier.has-fig .d-fig{grid-row:2}
+.dossier.has-fig .d-body,.dossier.has-fig .spec{grid-row:3}
+.d-fig .diagram svg{max-width:920px;margin-inline:auto}
+.inst-grid.big{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+.eq{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:13px 18px;background:var(--card);border:1px solid var(--rule);border-radius:8px;overflow-x:auto}
+.eq .m{font-size:1.28em}
+.eq-tag{font:400 12px/1.4 var(--font-mono);color:var(--ink-2)}
+.nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.nums>div{background:var(--card);padding:10px 12px;display:grid;gap:3px;align-content:start}
+.nums b{font:500 17px/1.25 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+.nums span{font-size:12.5px;line-height:1.5;color:var(--ink-2)}
+.caveat{border-left:2px solid var(--warn);padding:4px 0 4px 14px;display:grid;gap:7px}
+.caveat>.k{font:500 11.5px/1 var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--warn)}
+.caveat ul{padding-left:1.1em}
+.note{font-size:14px;line-height:1.7;color:var(--ink-2)}
+
+/* figures */
+figure{margin:0}
+.diagram{background:var(--card);border:1px solid var(--rule);border-radius:9px;padding:14px 12px 10px;display:grid;gap:8px}
+.diagram .svgbox{overflow-x:auto}
+.diagram svg{display:block;width:100%;min-width:600px;height:auto;color:var(--ink)}
+.diagram figcaption,.figcap{font-size:13.5px;line-height:1.7;color:var(--ink-2);max-width:var(--measure)}
+.sv-t{font:500 12.5px var(--font-body);fill:currentColor}
+.sv-s{font:400 11px var(--font-body);fill:var(--ink-2)}
+.sv-m{font:400 11px var(--font-mono);fill:var(--ink-2)}
+.sv-line{stroke:currentColor;stroke-width:1.4;fill:none}
+.sv-thin{stroke:currentColor;stroke-width:1;fill:none;opacity:.35}
+.sv-box{fill:var(--paper);stroke:currentColor;stroke-width:1.2}
+.sv-box2{fill:var(--paper-2);stroke:var(--rule);stroke-width:1}
+.sv-sig{fill:var(--signal)}
+.sv-sigs{stroke:var(--signal);stroke-width:1.6;fill:none}
+.sv-exc{fill:var(--exc)}
+.sv-excs{stroke:var(--exc);stroke-width:1.8;fill:none}
+.sv-dep{fill:var(--dep)}
+.sv-deps{stroke:var(--dep);stroke-width:1.8;fill:none}
+.sv-arrowhead{fill:currentColor}
+
+/* instruments */
+.instrument{background:var(--paper-2);border:1px solid var(--rule);border-radius:10px;padding:16px;display:grid;gap:16px}
+.inst-label{font:500 11.5px/1.3 var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.inst-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;align-items:start}
+.screens{display:grid;gap:10px;min-width:0}
+.screens.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.screens.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.screen{background:var(--scope);border-radius:6px;position:relative;overflow:hidden;border:1px solid var(--scope-2)}
+.screen canvas{display:block;width:100%;height:auto}
+.screen .tag-s{position:absolute;left:10px;top:8px;font:500 11px/1.3 var(--font-mono);color:var(--scope-dim);letter-spacing:.04em;pointer-events:none}
+.sq{aspect-ratio:1/1}
+.wide-c{aspect-ratio:16/9}
+.mid-c{aspect-ratio:16/10}
+.controls{display:grid;gap:14px;align-content:start;min-width:0}
+.ctl{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:2px 10px}
+.ctl label{font-size:14px;font-weight:500}
+.ctl output{font:500 13.5px/1 var(--font-mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+.ctl input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--signal);margin:4px 0 0;height:24px;cursor:pointer}
+.ctl input[type=range]:disabled{opacity:.35;cursor:not-allowed}
+.ctl-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px 22px}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--rule);border-radius:7px;overflow:hidden;background:var(--card);justify-self:start}
+.seg button{font:500 13.5px/1 var(--font-body);padding:9px 12px;background:transparent;color:var(--ink-2);border:0;border-right:1px solid var(--rule);cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.seg-label{font-size:14px;font-weight:500;margin-bottom:6px;display:block}
+.status{--state:var(--ink-2);display:flex;gap:9px;align-items:flex-start;font-size:14px;line-height:1.6;padding:9px 11px;border-radius:7px;background:color-mix(in srgb,var(--state) 12%,transparent);color:var(--ink)}
+.status::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--state);margin-top:7px;flex:none}
+.status[data-state="ok"]{--state:var(--ok)}
+.status[data-state="warn"]{--state:var(--warn)}
+.status[data-state="bad"]{--state:var(--bad)}
+.status[data-state="info"]{--state:var(--exc)}
+.readout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;margin:0;background:var(--rule);border:1px solid var(--rule);border-radius:7px;overflow:hidden}
+.readout.five{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.readout>div{background:var(--card);padding:8px 10px;display:grid;gap:2px;min-width:0}
+.readout dt{font-size:12px;line-height:1.4;color:var(--ink-2)}
+.readout dd{margin:0;font:500 15px/1.3 var(--font-mono);font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font:400 12px/1.4 var(--font-mono);color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:3px;border-radius:2px;display:inline-block}
+.btn{font:500 13.5px/1 var(--font-body);padding:9px 13px;border-radius:7px;border:1px solid var(--rule);background:var(--card);color:var(--ink);cursor:pointer}
+.btn:hover{border-color:var(--signal)}
+
+/* glossary, sources */
+.gloss{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 36px;margin:0}
+.gloss>div{display:grid;grid-template-columns:7.5rem minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:1px solid var(--rule)}
+.gloss dt{font-weight:700;font-size:14.5px}
+.gloss dd{margin:0;font-size:14.5px;line-height:1.7;color:var(--ink)}
+.srcs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 36px}
+.src{display:grid;grid-template-columns:2.6rem minmax(0,1fr);gap:8px;padding:8px 0;border-bottom:1px solid var(--rule);font-size:14px;line-height:1.6}
+.src .c{font:500 12.5px/1.6 var(--font-mono);color:var(--signal)}
+.src a{color:var(--ink);text-decoration-color:var(--rule);word-break:break-word}
+.src a:hover{color:var(--signal);text-decoration-color:currentColor}
+.src span.v{color:var(--ink-2)}
+.choose{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.choose>div{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:12px 14px;display:grid;gap:4px;align-content:start}
+.choose b{font-size:15px}
+.choose p{font-size:14.5px;line-height:1.7;color:var(--ink-2)}
+.plain-sec{padding-block:80px 0;display:grid;gap:18px;scroll-margin-top:calc(var(--nav-h) + env(safe-area-inset-top,0px))}
+.plain-sec h2{font:600 clamp(1.6rem,3.2vw,2.1rem)/1.3 var(--font-display)}
+.plain-sec>p{max-width:var(--measure)}
+footer{margin-top:80px;border-top:1px solid var(--rule);padding-block:28px 48px;font-size:13.5px;color:var(--ink-2);line-height:1.8}
+footer p+p{margin-top:8px}
+
+@media (max-width: 980px){
+  .dossier{grid-template-columns:minmax(0,1fr)}
+  .d-body,.spec{grid-column:1;grid-row:auto}
+  .dossier.has-fig .d-body,.dossier.has-fig .spec,.dossier.has-fig .d-fig{grid-row:auto}
+  .spec{position:static}
+  .route-head{grid-template-columns:minmax(0,1fr)}
+  .route-letter{grid-row:auto;font-size:72px}
+}
+@media (max-width: 760px){
+  .hero-head,.inst-grid,.inst-grid.big{grid-template-columns:minmax(0,1fr)}
+  .screens.two,.screens.three{grid-template-columns:minmax(0,1fr)}
+  .gloss,.srcs,.choose{grid-template-columns:minmax(0,1fr)}
+  .gloss>div{grid-template-columns:minmax(0,1fr);gap:2px}
+  body{font-size:16px}
+  .brand{display:none}
+}
+@media (max-width: 420px){
+  .readout{grid-template-columns:minmax(0,1fr)}
+}
+</style>
+</head>
+<body>
+<nav class="strip" aria-label="路线">
+  <div class="wrap strip-in">
+    <a class="brand" href="#top">超分辨前沿详解</a>
+    <ol class="toc" id="toc">
+      <li><a href="#route-a"><b>A</b>分子尺度定位</a></li>
+      <li><a href="#route-b"><b>B</b>膨胀显微</a></li>
+      <li><a href="#route-c"><b>C</b>活细胞 SIM</a></li>
+      <li><a href="#route-d"><b>D</b>单帧·无标记·计算</a></li>
+      <li><a href="#compare">横向对比</a></li>
+      <li><a href="#glossary">术语</a></li>
+      <li><a href="#sources">来源</a></li>
+    </ol>
+  </div>
+</nav>
+
+<header class="hero wrap" id="top">
+  <div class="hero-head">
+    <div>
+      <p class="eyebrow">Frontier dossiers · 2017 – 2026</p>
+      <h1>超分辨<span>前沿详解</span></h1>
+    </div>
+    <div class="hero-lead">
+      <p>《超分辨成像手册》第 8 章按时间列出了近几年的进展。这一份把它们逐项拆开：每项技术一份档案，写清物理原理、实现细节、关键指标，以及还没有解决的问题。</p>
+      <p class="hint">四个演示可以直接调参数：MINFLUX 为什么省光子，RESI 怎样把精度推到 Ångström，膨胀显微的误差预算，非线性 SIM 的频率最多能扩展到哪里。整理截至 2026 年 10 月。</p>
+    </div>
+  </div>
+  <div class="index-label"><span>15 份档案 · 4 条路线</span><span>点击技术名跳转</span></div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>档案</th><th>技术</th><th>推进的方向</th><th>代表数字</th><th>样品</th></tr></thead>
+      <tbody>
+        <tr class="group"><td colspan="5">A · 分子尺度定位</td></tr>
+        <tr><td class="code">A1</td><td class="name"><a href="#a1">MINFLUX</a></td><td><div class="tags"><span class="tag k">精度</span><span class="tag k">光子效率</span><span class="tag">追踪</span></div></td><td class="num">1–3 nm · 约千个光子</td><td>固定；活细胞追踪</td></tr>
+        <tr><td class="code">A2</td><td class="name"><a href="#a2">MINSTED</a></td><td><div class="tags"><span class="tag k">精度</span><span class="tag">低背景</span></div></td><td class="num">4.7 Å · 2000 光子</td><td>固定</td></tr>
+        <tr><td class="code">A3</td><td class="name"><a href="#a3">RESI</a></td><td><div class="tags"><span class="tag k">分辨率</span></div></td><td class="num">相距 1 bp 的位点 8.5 Å</td><td>固定</td></tr>
+        <tr><td class="code">A4</td><td class="name"><a href="#a4">DNA-PAINT 提速与 SUM-PAINT</a></td><td><div class="tags"><span class="tag k">速度</span><span class="tag k">多重</span></div></td><td class="num">约 100× 提速 · 30 种蛋白</td><td>固定</td></tr>
+        <tr><td class="code">A5</td><td class="name"><a href="#a5">ROSE-3D</a></td><td><div class="tags"><span class="tag k">三维</span><span class="tag">精度</span></div></td><td class="num">轴向精度 ×3.5–8</td><td>固定</td></tr>
+        <tr class="group"><td colspan="5">B · 膨胀显微</td></tr>
+        <tr><td class="code">B1</td><td class="name"><a href="#b1">误差预算</a></td><td><div class="tags"><span class="tag k">易用</span></div></td><td class="num">4.5× → 约 70 nm</td><td>固定</td></tr>
+        <tr><td class="code">B2</td><td class="name"><a href="#b2">20ExM</a></td><td><div class="tags"><span class="tag k">分辨率</span><span class="tag">易用</span></div></td><td class="num">单步约 20× · FRC 17.9 nm</td><td>细胞、脑组织</td></tr>
+        <tr><td class="code">B3</td><td class="name"><a href="#b3">ONE</a></td><td><div class="tags"><span class="tag k">分辨率</span></div></td><td class="num">约 1 nm（FSC/FRC）</td><td>蛋白、细胞、脑脊液</td></tr>
+        <tr class="group"><td colspan="5">C · 活细胞 SIM</td></tr>
+        <tr><td class="code">C1</td><td class="name"><a href="#c1">非线性 SIM 的频率账</a></td><td><div class="tags"><span class="tag k">分辨率</span></div></td><td class="num">PD-NSIM 70 nm</td><td>活细胞</td></tr>
+        <tr><td class="code">C2</td><td class="name"><a href="#c2">LA-SIM</a></td><td><div class="tags"><span class="tag k">三维</span><span class="tag">光剂量</span></div></td><td class="num">87 nm × 203 nm</td><td>活细胞、胚胎</td></tr>
+        <tr><td class="code">C3</td><td class="name"><a href="#c3">Meta-rLLS-VSIM</a></td><td><div class="tags"><span class="tag k">各向同性</span><span class="tag">速度</span></div></td><td class="num">120 nm × 160 nm</td><td>活细胞</td></tr>
+        <tr><td class="code">C4</td><td class="name"><a href="#c4">SSR-SIM</a></td><td><div class="tags"><span class="tag k">光剂量</span></div></td><td class="num">训练数据 5 对 · 17 ms 重建</td><td>活细胞</td></tr>
+        <tr class="group"><td colspan="5">D · 单帧、无标记与计算</td></tr>
+        <tr><td class="code">D1</td><td class="name"><a href="#d1">SPIFFI</a></td><td><div class="tags"><span class="tag k">时间分辨率</span><span class="tag">取向</span></div></td><td class="num">单帧约 166 nm</td><td>活细胞</td></tr>
+        <tr><td class="code">D2</td><td class="name"><a href="#d2">iISM</a></td><td><div class="tags"><span class="tag k">无标记</span></div></td><td class="num">约 120 nm · 0.5 µW</td><td>活细胞</td></tr>
+        <tr><td class="code">D3</td><td class="name"><a href="#d3">深度学习 RESOLFT</a></td><td><div class="tags"><span class="tag k">光剂量</span><span class="tag">帧率</span></div></td><td class="num">单帧剂量约 1/10</td><td>活细胞</td></tr>
+        <tr><td class="code">D4</td><td class="name"><a href="#d4">AI 方法：谱系与验证</a></td><td><div class="tags"><span class="tag k">可信度</span></div></td><td class="num">—</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ===================== ROUTE A ===================== -->
+<section class="route" id="route-a" aria-labelledby="ra-h">
+  <div class="route-head">
+    <span class="route-letter" aria-hidden="true">A</span>
+    <p class="eyebrow">Route A · Molecular-scale localization</p>
+    <h2 id="ra-h">分子尺度定位</h2>
+    <p>相机式单分子定位的精度约为 <span class="m">σ<sub>PSF</sub>/√<i>N</i></span>。PSF 的 σ 约 100 nm，要达到 1 nm 需要约一万个光子，而大多数染料一次闪烁只给几百到几千个。这条路线上的工作从三个方向绕开这个瓶颈：让每个光子携带更多位置信息（MINFLUX、MINSTED、干涉定位），把同一个靶标测很多次再平均（RESI），以及提高采集速度与多重能力，使大量重复测量变得可行。</p>
+  </div>
+
+  <!-- A1 -->
+  <article class="dossier" id="a1">
+    <header class="d-head">
+      <div class="d-code"><b>A1</b><span>2017 Science → 2020 Nat. Methods → 2023–2025 · Hell 组、Ries 组等</span></div>
+      <h3>MINFLUX：用激发光的零点去“探”分子</h3>
+      <p class="d-thesis">相机定位找的是光斑最亮的中心。MINFLUX 反过来，把环形激发光中心的暗点放到分子附近：分子离零点越近，发出的光子越少。这种差别对位置极其敏感，所以每个光子带来的位置信息比相机法多得多。</p>
+    </header>
+    <aside class="spec" aria-label="A1 规格">
+      <div class="spec-t">规格</div>
+      <dl>
+        <div><dt>精度</dt><dd>定位 1–3 nm；双位点测距可达 Å 级</dd></div>
+        <div><dt>时间尺度</dt><dd>单次定位亚毫秒；成像一块区域数十分钟到数小时</dd></div>
+        <div><dt>样品</dt><dd>固定样品为主；活细胞单分子追踪</dd></div>
+        <div><dt>硬件</dt><dd>专用系统：环形光束快速定位、主动稳定</dd></div>
+        <div><dt>关键依赖</dt><dd>零点质量、亚纳米级机械稳定、单分子开关</dd></div>
+        <div><dt>原文</dt><dd><a href="https://arxiv.org/abs/1611.03401" target="_blank" rel="noopener">Balzarotti 2017</a> · <a href="https://www.biorxiv.org/content/10.1101/734251" target="_blank" rel="noopener">Gwosch 2020</a> · <a href="https://arxiv.org/abs/2410.15902v2" target="_blank" rel="noopener">综述</a></dd></div>
+      </dl>
+    </aside>
+    <div class="d-body">
+      <h4>原理</h4>
+      <p>在分子附近依次放置几次环形激发光的零点，这组位置叫目标坐标图样（TCP），记录每次曝光收到的光子数 <span class="m"><i>n<sub>i</sub></i></span>。零点附近的激发强度近似 <span class="m"><i>I</i>(<i>r</i>) ∝ <i>r</i>²</span>，所以各次曝光的光子比例直接编码了分子到各个零点的距离，用最大似然估计即可解出位置。</p>
+      <div class="eq"><span class="m">σ = <span class="frac"><span><i>L</i></span><span>4√<i>N</i></span></span></span><span class="eq-tag">一维：零点放在 ±L/2，分子在中心</span></div>
+      <div class="eq"><span class="m">σ ≈ <span class="frac"><span><i>L</i></span><span>2√(2<i>N</i>)</span></span> · √[(1 + 1/SBR)(1 + 3/(4·SBR))]</span><span class="eq-tag">二维：中心 + 直径 L 圆上三点，含背景</span></div>
+      <p>关键在于：精度由图样尺寸 <span class="m"><i>L</i></span> 决定，与 PSF 宽度无关。<span class="m"><i>L</i></span> 越小越精确，但前提是分子已经落在图样内部。所以实际系统采用迭代：先用 <span class="m"><i>L</i> ≈ 300 nm</span> 的普通光斑粗定位，再把图样中心移到估计位置，逐步把 <span class="m"><i>L</i></span> 缩小到 40–50 nm。</p>
+      <h4>实现要点</h4>
+      <ul>
+        <li><b>迭代定位。</b>2020 年的实现中，2D 的 <span class="m"><i>L</i></span> 序列为 300 → 300 → 150 → 100 → 50 nm，最后一步约 2000 个光子。核孔蛋白 Nup96 的单次定位中位精度约 1 nm；3D 用顶帽形零点探测 z，得到 σ<sub>xy</sub> 2.4 nm、σ<sub>z</sub> 1.7 nm。</li>
+        <li><b>多色。</b>荧光在 685 nm 处用二向色镜分成两路，按两路的光子比例给每个分子分类。所有颜色共用同一束激发光和同一个零点，不存在通道间的配准误差。</li>
+        <li><b>分子开关。</b>同一时刻探测区内只能有一个分子在发光，因此仍需光开关染料、PAINT 式瞬时结合或光激活蛋白。</li>
+        <li><b>主动稳定。</b>参考颗粒加压电台实时反馈，把样品漂移压到亚纳米。</li>
+      </ul>
+      <h4>近几年的进展</h4>
+      <ul>
+        <li><b>追踪。</b>2017 年在活大肠杆菌中追踪 30S 核糖体亚基，每次定位约 9 个光子、125 µs，单条轨迹平均 742 个点，约为相机追踪的 100 倍。2023 年两篇 Science 用 MINFLUX 研究驱动蛋白-1：Ries 组在活细胞中直接看到一个头约 16 nm 的步进；Hell 组在体外改用干涉条纹代替环形光，看到 8 nm 步进的不均匀节奏和柄部随步旋转。</li>
+        <li><b>测距。</b>2024 年 Sahl 等用两个光激活染料标记同一大分子上的两个位点，每次只开一个、分别定位，在 FRET 不再可靠的约 1–10 nm 范围内以 Å 级精度直接测量距离，并分辨了柠檬酸感受器两个亚基的两种构象。</li>
+        <li><b>标记。</b>2025 年，荧光增强型探针缓慢逐个结合靶标（GLF-MINFLUX）：微管上精度 2.6 nm，标记密度约为抗体 Alexa 647 方案的 3 倍，膜蛋白追踪时间分辨率约 200 µs。另一项工作利用抗 GFP 纳米抗体的结合与解离产生闪烁，不需要闪烁缓冲液，看到了微管的中空结构。</li>
+      </ul>
+      <div class="caveat">
+        <span class="k">局限与开放问题</span>
+        <ul>
+          <li>定位精度不等于结构分辨率。标记密度、标记效率和连接误差（一抗加二抗约 10–20 nm）往往才是瓶颈；精度到 1 nm 时，染料本身约 1 nm 的尺寸也要计入。</li>
+          <li>逐个分子处理，视场通常只有几微米，大面积成像很慢。</li>
+          <li>零点处的残余光强相当于背景，会直接降低信背比（SBR）。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="d-wide">
+      <div class="instrument" id="demo-mf">
+        <div class="inst-label"><span>演示 A · MINFLUX 与相机定位</span><span>环形光峰值半径 250 nm · 相机 σ<sub>PSF</sub> = 100 nm</span></div>
+        <div class="inst-grid big">
+          <div class="screens two">
+            <div class="screen sq"><canvas id="mfField" role="img" aria-label="MINFLUX 图样、真实分子位置与 160 次模拟估计的散点"></canvas><span class="tag-s">样品面 · 160 次模拟定位</span></div>
+            <div class="screen sq"><canvas id="mfCurve" role="img" aria-label="定位精度随光子数变化的对数坐标曲线"></canvas></div>
+          </div>
+          <div class="controls">
+            <div class="ctl"><label for="mfL">图样直径 <span class="m"><i>L</i></span></label><output id="mfLV" for="mfL">100 nm</output><input type="range" id="mfL" min="20" max="300" step="5" value="100"></div>
+            <div class="ctl"><label for="mfN">探测光子数 <span class="m"><i>N</i></span></label><output id="mfNV" for="mfN">500</output><input type="range" id="mfN" min="0" max="1000" step="1" value="629"></div>
+            <div class="ctl"><label for="mfS">信背比 SBR</label><output id="mfSV" for="mfS">13.6</output><input type="range" id="mfS" min="0" max="1000" step="1" value="567"></div>
+            <div class="ctl"><label for="mfO">分子偏离图样中心 <span class="m"><i>r</i>/<i>L</i></span></label><output id="mfOV" for="mfO">0.00</output><input type="range" id="mfO" min="0" max="0.6" step="0.01" value="0"></div>
+            <p class="status" id="mfStatus" data-state="ok" aria-live="polite">–</p>
+            <dl class="readout">
+              <div><dt>MINFLUX 精度（CRB）</dt><dd id="mfR1">–</dd></div>
+              <div><dt>理想相机 σ<sub>PSF</sub>/√N</dt><dd id="mfR2">–</dd></div>
+              <div><dt>模拟 RMS 误差</dt><dd id="mfR3">–</dd></div>
+              <div><dt>估计偏差</dt><dd id="mfR4">–</dd></div>
+              <div><dt>达到 1 nm 需光子（MINFLUX）</dt><dd id="mfR5">–</dd></div>
+              <div><dt>达到 1 nm 需光子（相机）</dt><dd class="mono">10,000</dd></div>
+            </dl>
+          </div>
+        </div>
+        <div class="legend"><span><i style="background:#FF6B52"></i>零点位置（0 为中心）</span><span><i style="background:#4BE095"></i>最大似然估计</span><span><i style="background:rgba(235,245,240,.8)"></i>真实位置与 1σ CRB 圆</span><span><i style="background:#6FA3FF"></i>理想相机</span></div>
+        <p class="figcap">每次更新时按多项分布抽取四次曝光的光子数 160 次，并对每组数据做网格加局部细化的最大似然估计。环形光取 <span class="m"><i>I</i>(<i>r</i>) ∝ <i>r</i>² exp(−<i>r</i>²/<i>w</i>²)</span>，背景按分子在中心时的信号设定。把分子移到图样边缘以外，可以看到估计被拉回图样内部，这就是实际系统必须迭代缩小 <span class="m"><i>L</i></span> 的原因。</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- A2 -->
+  <article class="dossier" id="a2">
+    <header class="d-head">
+      <div class="d-code"><b>A2</b><span>2021 Nat. Photonics → 2023 Nat. Biotechnol. · Weber、Hell 等</span></div>
+      <h3>MINSTED：用 STED 环的边缘做定位</h3>
+      <p class="d-thesis">同样利用零点，但 MINSTED 的环形光是 STED 耗尽光。激发光是普通高斯光斑，耗尽环把零点以外的荧光关掉。环的边缘围着分子做圆周扫描，每探测到一个光子，就把圆心朝分子方向挪一小步。</p>
+    </header>
+    <aside class="spec" aria-label="A2 规格">
+      <div class="spec-t">规格</div>
+      <dl>
+        <div><dt>精度</dt><dd>2000 光子 4.7 Å；约 400 次探测达 1 nm</dd></div>
+        <div><dt>时间尺度</dt><dd>逐个分子，较慢</dd></div>
+        <div><dt>样品</dt><dd>固定样品</dd></div>
+        <div><dt>硬件</dt><dd>STED 光路 + 圆周扫描 + 实时反馈</dd></div>
+        <div><dt>关键依赖</dt><dd>DNA 杂交式瞬时结合；控制 STED 加热</dd></div>
+        <div><dt>原文</dt><dd><a href="https://www.biorxiv.org/content/10.1101/2022.03.18.484906v1.full-text" target="_blank" rel="noopener">Weber 等（预印本）</a></dd></div>
+      </dl>
+    </aside>
+    <div class="d-body">
+      <h4>原理</h4>
+      <ul>
+        <li>扫描圆的半径取有效 PSF 半高宽的一半。光子出现的概率取决于分子相对当前零点的方位，所以每个光子都带有“分子在哪一侧”的信息。</li>
+        <li>估计逐步收敛的同时提高 STED 功率，有效 PSF 随之缩小（最小约 24 nm），扫描半径和步长也一起缩小。</li>
+        <li>与 MINFLUX 的区别：MINFLUX 的环形光负责激发，分子周围约为共聚焦光斑 3 倍面积内的荧光都可能贡献背景；MINSTED 的环形光负责关闭荧光，背景更低。它建立在 STED 显微镜上，分辨率可从衍射极限连续调到分子尺度。</li>
+      </ul>
+      <h4>实现要点</h4>
+      <ul>
+        <li>早期 MINSTED 受 STED 加热限制，精度停在 1 nm 以上。对 Cy3B 改用 636 nm 的耗尽光后，平均 STED 功率从 100 mW 降到 10 mW。</li>
+        <li>荧光团通过 DNA 杂交瞬时结合到靶标上（PAINT 方式），保证每次只有一个分子处于开态。</li>
+      </ul>
+      <div class="nums">
+        <div><b>4.7 Å</b><span>单个荧光团，2000 光子</span></div>
+        <div><b>4 nm</b><span>完全分开的两个荧光团间距</span></div>
+        <div><b>&lt; 1 nm</b><span>核孔 NUP96 中位精度</span></div>
+        <div><b>111 nm</b><span>77 个核孔叠加的平均直径</span></div>
+      </div>
+      <div class="caveat">
+        <span class="k">局限与开放问题</span>
+        <ul>
+          <li>作者认为荧光显微剩下的限制已经从显微镜转到连接分子：染料与靶标之间的连接臂长度。</li>
+          <li>需要 STED 光路与高稳定性，速度与视场的限制和 MINFLUX 类似。</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- A3 -->
+  <article class="dossier" id="a3">
+    <header class="d-head">
+      <div class="d-code"><b>A3</b><span>2023 Nature · Reinhardt … Jungmann</span></div>
+      <h3>RESI：同一个靶标测几百次，再取平均</h3>
+      <p class="d-thesis">DNA-PAINT 中，成像链会在每个靶标上反复结合几十到几百次，每次给出一个定位点。如果能确定这些点都来自同一个靶标，取平均就能把精度提高 √K 倍。RESI 解决的就是“确定来自同一个靶标”这一步。</p>
+    </header>
+    <aside class="spec" aria-label="A3 规格">
+      <div class="spec-t">规格</div>
+      <dl>
+        <div><dt>精度</dt><dd>DNA 折纸约 1 Å；完整细胞约 1 nm</dd></div>
+        <div><dt>时间尺度</dt><dd>多轮成像，以小时计（CD20 实验 4.4 h）</dd></div>
+        <div><dt>样品</dt><dd>固定样品</dd></div>
+        <div><dt>硬件</dt><dd>普通 TIRF / HILO 荧光显微镜</dd></div>
+        <div><dt>关键依赖</dt><dd>正交 DNA 序列、轮间基准点对齐</dd></div>
+        <div><dt>原文</dt><dd><a href="https://www.nature.com/articles/s41586-023-05925-9" target="_blank" rel="noopener">Nature 2023</a></dd></div>
+      </dl>
+    </aside>
+    <div class="d-body">
+      <h4>原理</h4>
+      <div class="eq"><span class="m">σ<sub>RESI</sub> = <span class="frac"><span>σ<sub>DNA-PAINT</sub></span><span>√<i>K</i></span></span></span><span class="eq-tag">K：每个靶标的定位次数</span></div>
+      <ul>
+        <li>相邻靶标太近时，它们的定位云重叠，无法把点分给各自的靶标。RESI 用 <span class="m"><i>n</i></span> 种正交 DNA 序列随机标记靶标，每个靶标以 <span class="m">1/<i>n</i></span> 的概率得到某一种，然后按序列分轮成像。</li>
+        <li>同一轮只有约 <span class="m">1/<i>n</i></span> 的靶标亮起，彼此相距足够远，定位云可以清楚分开。每个定位云求平均得到一个“RESI 定位”。</li>
+        <li>各轮之间用金纳米颗粒或额外的对接位点作基准对齐，再合并所有轮次。</li>
+      </ul>
+      <div class="eq"><span class="m"><i>P</i>(<i>m</i>, <i>n</i>) = <span class="frac"><span><i>n</i>!</span><span>(<i>n</i> − <i>m</i>)! · <i>n</i><sup><i>m</i></sup></span></span></span><span class="eq-tag">m 个相邻分子拿到互不相同序列的概率</span></div>
+      <p>二聚体用 4 种序列时成功率约 75%。按论文的估算，密度 200 个/µm²、目标分辨率 20 nm 时，4 种序列可让约 90% 的蛋白可分辨。</p>
+      <h4>关键结果</h4>
+      <div class="nums">
+        <div><b>8.5 ± 1.7 Å</b><span>单个折纸上相距 1 bp 的两条对接链（42 个结构平均 9.5 Å）</span></div>
+        <div><b>≈ 1.3 Å</b><span>平均精度，K<sub>avg</sub> = 254</span></div>
+        <div><b>11.9 nm</b><span>细胞中相邻 Nup96 对的横向间距（轴向 5.4 nm），K<sub>avg</sub> = 38</span></div>
+        <div><b>13.5 nm</b><span>CD20 二聚体内距离；53% 单体、47% 二聚体</span></div>
+      </div>
+      <p>利妥昔单抗处理后，CD20 的第 1 至 4 近邻距离分布偏离完全随机，提示形成了链状的高阶排列。</p>
+      <div class="caveat">
+        <span class="k">局限与开放问题</span>
+        <ul>
+          <li>Å 级“分辨率”指能区分两个点状目标，作者称这是最严格的定义；它不意味着能看到蛋白内部结构。</li>
+          <li>连接误差仍然存在：抗体、纳米抗体或 DNA 链会让荧光团偏离靶标，造成距离偏差。</li>
+          <li>精度取决于成像链的结合动力学、曝光时间和轮间对齐；整个流程慢，只能用于固定样品。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="d-wide">
+      <div class="instrument" id="demo-resi">
+        <div class="inst-label"><span>演示 B · DNA-PAINT 与 RESI</span><span>两个位点沿水平方向相距 d</span></div>
+        <div class="screens three">
+          <div class="screen sq"><canvas id="reA" role="img" aria-label="单轮 DNA-PAINT 的定位云"></canvas><span class="tag-s">单轮 DNA-PAINT（同一序列）</span></div>
+          <div class="screen sq"><canvas id="reB" role="img" aria-label="RESI 两轮成像，按轮次着色并求平均"></canvas><span class="tag-s">RESI：两轮，各自求平均</span></div>
+          <div class="screen sq"><canvas id="reC" role="img" aria-label="40 次重复实验得到的 RESI 定位（放大）"></canvas><span class="tag-s" id="reCtag">RESI 定位 · 40 次重复（放大）</span></div>
+        </div>
+        <div class="ctl-row">
+          <div class="ctl"><label for="reD">位点间距 <span class="m"><i>d</i></span></label><output id="reDV" for="reD">2.0 nm</output><input type="range" id="reD" min="0.3" max="20" step="0.1" value="2"></div>
+          <div class="ctl"><label for="reS">单次定位精度 σ</label><output id="reSV" for="reS">4.0 nm</output><input type="range" id="reS" min="1" max="10" step="0.1" value="4"></div>
+          <div class="ctl"><label for="reK">每个位点定位次数 <span class="m"><i>K</i></span></label><output id="reKV" for="reK">100</output><input type="range" id="reK" min="0" max="1000" step="1" value="651"></div>
+          <div class="ctl"><label for="reN">条码种数 <span class="m"><i>n</i></span></label><output id="reNV" for="reN">4</output><input type="range" id="reN" min="2" max="8" step="1" value="4"></div>
+          <div class="ctl"><label for="reM">相邻分子数 <span class="m"><i>m</i></span></label><output id="reMV" for="reM">2</output><input type="range" id="reM" min="2" max="6" step="1" value="2"></div>
+        </div>
+        <p class="status" id="reStatus" data-state="ok" aria-live="polite">–</p>
+        <dl class="readout five">
+          <div><dt>DNA-PAINT 分辨率 ≈ 2.35σ</dt><dd id="reR1">–</dd></div>
+          <div><dt>σ<sub>RESI</sub> = σ/√K</dt><dd id="reR2">–</dd></div>
+          <div><dt>RESI 分辨率 ≈ 2.35σ<sub>RESI</sub></dt><dd id="reR3">–</dd></div>
+          <div><dt>条码互不相同的概率 P(m,n)</dt><dd id="reR4">–</dd></div>
+          <div><dt>每轮亮起的比例</dt><dd id="reR5">–</dd></div>
+        </dl>
+        <p class="figcap">左、中两图使用同一组模拟定位点。中图按条码分轮着色，大圆点是每轮定位云的平均位置。右图把视野放大，叠加 40 次独立重复实验的 RESI 定位，底部是沿连线方向的投影直方图。为便于观察，演示假设两个位点恰好分到不同条码。</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- A4 -->
+  <article class="dossier" id="a4">
+    <header class="d-head">
+      <div class="d-code"><b>A4</b><span>2020 Nat. Methods（Strauss、Jungmann）→ 2024 Cell（Unterauer 等）</span></div>
+      <h3>DNA-PAINT 提速与 SUM-PAINT 空间蛋白质组</h3>
+      <p class="d-thesis">DNA-PAINT 不怕光漂白、精度高，长期的短板是慢。这两项工作分别从对接序列设计和标记架构上解决了速度和多重通量，让 RESI 这类需要大量重复结合的方法变得可行。</p>
+    </header>
+    <aside class="spec" aria-label="A4 规格">
+      <div class="spec-t">规格</div>
+      <dl>
+        <div><dt>精度</dt><dd>神经元中平均 6.6 nm；折纸约 1.8 nm</dd></div>
+        <div><dt>时间尺度</dt><dd>每个靶标约 17 分钟；30 重约 30 小时</dd></div>
+        <div><dt>样品</dt><dd>固定细胞与神经元培养</dd></div>
+        <div><dt>硬件</dt><dd>普通荧光显微镜 + 流体交换</dd></div>
+        <div><dt>关键依赖</dt><dd>重复基序对接链；二级标记的结合与移除</dd></div>
+        <div><dt>原文</dt><dd><a href="https://www.biochem.mpg.de/feeling-the-need-for-speed" target="_blank" rel="noopener">2020 提速</a> · <a href="https://www.biorxiv.org/content/10.1101/2023.05.17.541210v1" target="_blank" rel="noopener">SUM-PAINT</a></dd></div>
+      </dl>
+    </aside>
+    <div class="d-body">
+      <h4>提速：重复基序</h4>
+      <p>结合频率约等于结合速率常数 × 成像链浓度 × 可结合位点数。把对接链直接串联加长会增加连接误差。2020 年的方案改用重复基序，例如 (TCC)<sub>n</sub>，让相邻的结合位点相互重叠，在长度几乎不变的情况下增加可结合的位点数。</p>
+      <ul>
+        <li>结合频率提高约 10 倍，叠加此前缓冲液和序列的优化，总体约 100 倍提速。</li>
+        <li>设计了 6 种周期基序，仍然可以多重成像；数分钟内即可完成 DNA 折纸以及细胞表面 EGFR、HER2 等单分子成像。</li>
+      </ul>
+      <h4>SUM-PAINT：把条码和成像解耦</h4>
+      <p>快速基序只有 6 种，直接限制了可以同时成像的靶标数。SUM-PAINT（二级标记的无限多重 DNA-PAINT）把“识别靶标”和“成像读出”分开：</p>
+      <ol>
+        <li>每种一抗先与携带唯一 20 nt 一级条码的二级纳米抗体孵育，再标记样品。</li>
+        <li>每一轮加入 6 种二级标记链。每条链含与某个一级条码互补的 20 nt 序列、一段快速对接序列和一段 10 nt 的立足点（toehold）。</li>
+        <li>依次用 6 种成像链读出 6 个靶标。</li>
+        <li>用立足点介导的链置换剥离二级标记，并用 19 nt 互补链封闭残余对接位点（残余信号低于 2%），进入下一轮。</li>
+      </ol>
+      <div class="nums">
+        <div><b>30</b><span>同一神经元样品中三维成像的蛋白种数（5 轮 × 6）</span></div>
+        <div><b>约 30 h</b><span>30 重全流程；作者估计未提速的 DNA-PAINT 需 800 h 以上</span></div>
+        <div><b>约 1%</b><span>由约 900 个突触、1600 个特征聚类发现的新突触类型占比</span></div>
+      </div>
+      <div class="caveat">
+        <span class="k">局限与开放问题</span>
+        <ul>
+          <li>多轮成像依赖抗体质量与标记效率；每增加一个靶标就多一份标记偏差。</li>
+          <li>流程以天计，仍限于固定样品；轮间漂移校正决定了多通道之间的配准精度。</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- A5 -->
+  <article class="dossier" id="a5">
+    <header class="d-head">
+      <div class="d-code"><b>A5</b><span>2025 Nat. Methods · Luo … Gu · 前身 ROSE（2019）、ROSE-Z（2021）</span></div>
+      <h3>ROSE-3D：用干涉条纹的相位做三维定位</h3>
+      <p class="d-thesis">像散法把深度编码在光斑的椭圆形状里，离焦面越远光斑越大、精度越差。ROSE-3D 用干涉条纹激发分子，从相位读出位置，在整个景深内保持一致的精度。</p>
+    </header>
+    <aside class="spec" aria-label="A5 规格">
+      <div class="spec-t">规格</div>
+      <dl>
+        <div><dt>精度</dt><dd>相对像散法：横向 ×2–6，轴向 ×3.5–8</dd></div>
+        <div><dt>时间尺度</dt><dd>与常规 SMLM 相当</dd></div>
+        <div><dt>样品</dt><dd>固定细胞，可全细胞、多色</dd></div>
+        <div><dt>硬件</dt><dd>干涉照明 + 相位稳定控制</dd></div>
+        <div><dt>关键依赖</dt><dd>高光子数分子；条纹相位稳定</dd></div>
+        <div><dt>原文</dt><dd><a href="https://www.nature.com/articles/s41592-025-02911-z" target="_blank" rel="noopener">Nat. Methods 2025</a></dd></div>
+      </dl>
+    </aside>
+    <div class="d-body">
+      <h4>原理</h4>
+      <p>若用周期为 <span class="m">Λ</span> 的条纹照明，并在几次曝光之间平移条纹相位，分子的光子数就随它在条纹中的位置按正弦变化。由相位反推位置时，精度与条纹周期成正比，与 PSF 宽度无关：</p>
+      <div class="eq"><span class="m">σ<sub><i>x</i></sub> = <span class="frac"><span>Λ</span><span>2π</span></span> σ<sub>φ</sub>,&nbsp; σ<sub>φ</sub> ∝ <span class="frac"><span>1</span><span><i>m</i>√<i>N</i></span></span></span><span class="eq-tag">m 为条纹调制深度</span></div>
+      <p>这与 MINFLUX 的思路相通：两者都用结构化的激发光替代“看光斑形状”，让光子数的变化直接携带位置信息。ROSE-3D 的条纹宽度为 260 nm，作为对比，相机法依赖的 σ<sub>PSF</sub> 约 100 nm 而且离焦后迅速变大。</p>
+      <h4>重建流程</h4>
+      <ol>
+        <li>原始图像分割、配准成对齐的子图像栈。</li>
+        <li>识别单分子，先用高斯拟合得到粗略的三维位置、相位和光子数。</li>
+        <li>把三个相位的数据与粗位置对齐，精修定位；再做漂移校正。</li>
+      </ol>
+      <div class="nums">
+        <div><b>≈ 1.2 µm</b><span>精度保持一致的景深</span></div>
+        <div><b>0.28 nm</b><span>相位漂移 0.007 rad（标准差）对应的位移</span></div>
+        <div><b>23,287</b><span>DNA 折纸测试的平均光子数</span></div>
+      </div>
+      <p>应用包括核纤层、线粒体分裂位点的 DRP1 组装（以 TOM20 为参照的双色成像）和微管，并演示了全细胞与多色成像。</p>
+      <div class="caveat">
+        <span class="k">局限与开放问题</span>
+        <ul>
+          <li>高精度依赖高光子数；论文的精度分析选取 2 万光子以上的分子。</li>
+          <li>干涉光路要求相位长期稳定；原始数据量很大（约 3 TB）。</li>
+          <li>与 4Pi 等多物镜干涉方案的直接定量比较还很少。</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ===================== ROUTE B ===================== -->
+<section class="route" id="route-b" aria-labelledby="rb-h">
+  <div class="route-head">
+    <span class="route-letter" aria-hidden="true">B</span>
+    <p class="eyebrow">Route B · Expansion microscopy</p>
+    <h2 id="rb-h">膨胀显微：放大样品本身</h2>
+    <p>膨胀显微不改显微镜，改样品。把生物分子或它们的标记锚定到可溶胀的水凝胶网络里，用蛋白酶或热变性让样品的力学性质变均匀，再放进纯水中让凝胶各向同性地膨胀。样品中的距离放大 <span class="m"><i>E</i></span> 倍，普通显微镜的分辨率就等效地除以 <span class="m"><i>E</i></span>。</p>
+  </div>
+
+  <figure class="diagram" style="margin-top:28px">
+    <div class="svgbox">
+      <svg viewBox="0 0 760 228" role="img" aria-label="膨胀显微四个步骤：标记并锚定、原位聚合凝胶、均质化、在纯水中溶胀，分子间距 d 放大为 E 乘 d">
+        <defs><marker id="ah-exm" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L8,4 L0,8 z" class="sv-arrowhead"/></marker></defs>
+        <!-- S1 -->
+        <rect x="12" y="40" width="150" height="120" rx="8" class="sv-box"/>
+        <ellipse cx="52" cy="75" rx="19" ry="10" class="sv-line"/><ellipse cx="116" cy="68" rx="19" ry="10" class="sv-line"/><ellipse cx="84" cy="122" rx="19" ry="10" class="sv-line"/>
+        <circle cx="40" cy="75" r="4" class="sv-sig"/><circle cx="64" cy="75" r="4" class="sv-sig"/><circle cx="104" cy="68" r="4" class="sv-sig"/><circle cx="128" cy="68" r="4" class="sv-sig"/><circle cx="72" cy="122" r="4" class="sv-sig"/><circle cx="96" cy="122" r="4" class="sv-sig"/>
+        <line x1="72" y1="140" x2="96" y2="140" class="sv-line"/><line x1="72" y1="136" x2="72" y2="144" class="sv-line"/><line x1="96" y1="136" x2="96" y2="144" class="sv-line"/>
+        <text x="84" y="155" text-anchor="middle" class="sv-m">d</text>
+        <!-- S2 -->
+        <rect x="200" y="40" width="150" height="120" rx="8" class="sv-box"/>
+        <path d="M200 60 H350 M200 80 H350 M200 100 H350 M200 120 H350 M200 140 H350 M220 40 V160 M240 40 V160 M260 40 V160 M280 40 V160 M300 40 V160 M320 40 V160 M340 40 V160" class="sv-thin"/>
+        <ellipse cx="240" cy="75" rx="19" ry="10" class="sv-line"/><ellipse cx="304" cy="68" rx="19" ry="10" class="sv-line"/><ellipse cx="272" cy="122" rx="19" ry="10" class="sv-line"/>
+        <circle cx="228" cy="75" r="4" class="sv-sig"/><circle cx="252" cy="75" r="4" class="sv-sig"/><circle cx="292" cy="68" r="4" class="sv-sig"/><circle cx="316" cy="68" r="4" class="sv-sig"/><circle cx="260" cy="122" r="4" class="sv-sig"/><circle cx="284" cy="122" r="4" class="sv-sig"/>
+        <!-- S3 -->
+        <rect x="388" y="40" width="150" height="120" rx="8" class="sv-box"/>
+        <path d="M388 60 H538 M388 80 H538 M388 100 H538 M388 120 H538 M388 140 H538 M408 40 V160 M428 40 V160 M448 40 V160 M468 40 V160 M488 40 V160 M508 40 V160 M528 40 V160" class="sv-thin"/>
+        <ellipse cx="428" cy="75" rx="19" ry="10" class="sv-line" stroke-dasharray="3 3"/><ellipse cx="492" cy="68" rx="19" ry="10" class="sv-line" stroke-dasharray="3 3"/><ellipse cx="460" cy="122" rx="19" ry="10" class="sv-line" stroke-dasharray="3 3"/>
+        <circle cx="416" cy="75" r="4" class="sv-sig"/><circle cx="440" cy="75" r="4" class="sv-sig"/><circle cx="480" cy="68" r="4" class="sv-sig"/><circle cx="504" cy="68" r="4" class="sv-sig"/><circle cx="448" cy="122" r="4" class="sv-sig"/><circle cx="472" cy="122" r="4" class="sv-sig"/>
+        <!-- S4 -->
+        <rect x="580" y="8" width="170" height="170" rx="8" class="sv-box"/>
+        <path d="M580 38 H750 M580 68 H750 M580 98 H750 M580 128 H750 M580 158 H750 M610 8 V178 M640 8 V178 M670 8 V178 M700 8 V178 M730 8 V178" class="sv-thin"/>
+        <circle cx="598" cy="50" r="4" class="sv-sig"/><circle cx="646" cy="50" r="4" class="sv-sig"/><circle cx="688" cy="34" r="4" class="sv-sig"/><circle cx="736" cy="34" r="4" class="sv-sig"/><circle cx="642" cy="128" r="4" class="sv-sig"/><circle cx="690" cy="128" r="4" class="sv-sig"/>
+        <line x1="642" y1="146" x2="690" y2="146" class="sv-line"/><line x1="642" y1="142" x2="642" y2="150" class="sv-line"/><line x1="690" y1="142" x2="690" y2="150" class="sv-line"/>
+        <text x="666" y="165" text-anchor="middle" class="sv-m">E·d</text>
+        <!-- arrows -->
+        <line x1="166" y1="100" x2="194" y2="100" class="sv-line" marker-end="url(#ah-exm)"/>
+        <line x1="354" y1="100" x2="382" y2="100" class="sv-line" marker-end="url(#ah-exm)"/>
+        <line x1="542" y1="100" x2="574" y2="100" class="sv-line" marker-end="url(#ah-exm)"/>
+        <!-- labels -->
+        <text x="87" y="200" text-anchor="middle" class="sv-t">① 标记并锚定</text><text x="87" y="217" text-anchor="middle" class="sv-s">锚定基团接到蛋白或标记上</text>
+        <text x="275" y="200" text-anchor="middle" class="sv-t">② 原位聚合凝胶</text><text x="275" y="217" text-anchor="middle" class="sv-s">丙烯酸钠 + 交联剂或 DMAA</text>
+        <text x="463" y="200" text-anchor="middle" class="sv-t">③ 均质化</text><text x="463" y="217" text-anchor="middle" class="sv-s">蛋白酶 K 酶切或热变性</text>
+        <text x="665" y="200" text-anchor="middle" class="sv-t">④ 纯水中溶胀</text><text x="665" y="217" text-anchor="middle" class="sv-s">线性放大 ×4.5、×10 或 ×20</text>
+      </svg>
+    </div>
+    <figcaption>膨胀显微的四步。绿色点代表荧光标记，网格代表凝胶网络，虚线轮廓表示样品的刚性已被破坏。第 ④ 步按示意比例绘制，实际倍数见下方各档案。</figcaption>
+  </figure>
+
+  <!-- B1 -->
+  <article class="dossier" id="b1">
+    <header class="d-head">
+      <div class="d-code"><b>B1</b><span>2015 Science（Chen、Tillberg、Boyden）起</span></div>
+      <h3>膨胀显微的误差预算</h3>
+      <p class="d-thesis">膨胀倍数越大，光学分辨率的贡献越小，剩下的误差主要来自标记和凝胶本身。理解这本账，才能判断再提高膨胀倍数还值不值得。</p>
+    </header>
+    <aside class="spec" aria-label="B1 规格">
+      <div class="spec-t">规格</div>
+      <dl>
+        <div><dt>分辨率</dt><dd>4.5× 时表观约 70 nm（体成像约 70 × 200 nm）</dd></div>
+        <div><dt>时间尺度</dt><dd>制样以天计；成像速度取决于所用显微镜</dd></div>
+        <div><dt>样品</dt><dd>固定细胞与组织</dd></div>
+        <div><dt>硬件</dt><dd>普通共聚焦或宽场即可</dd></div>
+        <div><dt>关键依赖</dt><dd>锚定化学、均质化、凝胶均匀性</dd></div>
+        <div><dt>原文</dt><dd><a href="https://www.scienceintheclassroom.org/research-papers/expanding-limits-optical-resolution" target="_blank" rel="noopener">Science 2015 导读版</a></dd></div>
+      </dl>
+    </aside>
+    <div class="d-body">
+      <h4>2015 年的原始方案</h4>
+      <ul>
+        <li>凝胶：丙烯酸钠为溶胀单体，丙烯酰胺为共聚单体，N,N′-亚甲基双丙烯酰胺交联；过硫酸铵引发，TEMED 加速。</li>
+        <li>锚定：自制的三功能标记同时带有可参与聚合的甲基丙烯酰基、荧光团和寡核苷酸，寡核苷酸与抗体上的序列杂交。</li>
+        <li>均质化：蛋白酶 K 消化，使样品各处的力学性质一致，然后在水中透析膨胀，线性约 4.5 倍。</li>
+        <li>形变：均方根长度误差在培养细胞中 &lt; 1%，脑切片中 2–4%。</li>
+      </ul>
+      <h4>一个简化的误差模型</h4>
+      <div class="eq"><span class="m"><i>R</i><sub>eff</sub> ≈ √[ (<i>d</i><sub>opt</sub>/<i>E</i>)² + δ<sub>label</sub>² ]</span><span class="eq-tag">按膨胀前的尺度计</span></div>
+      <ul>
+        <li><b>光学项</b> <span class="m"><i>d</i><sub>opt</sub>/<i>E</i></span>：成像所用显微镜的分辨率除以膨胀倍数。</li>
+        <li><b>标记项</b> <span class="m">δ<sub>label</sub></span>：膨胀前标记时，抗体等标记随样品一起放大，按膨胀前尺度计仍是它的物理尺寸（一抗加二抗约 15 nm）；膨胀后标记时，标记作用在已经放大的样品上，等效为 <span class="m">δ/<i>E</i></span>。</li>
+        <li><b>形变项</b>：与测量长度成正比，影响距离测量的准确度，不在上式中。</li>
+      </ul>
+      <h4>与其他超分辨方法叠加</h4>
+      <p>膨胀可以和 SIM、STED、单分子定位叠加，光学项按倍数相乘地缩小。代价也很明确：荧光团的体密度降为 <span class="m">1/<i>E</i>³</span>，信号变弱；凝胶必须在纯水中保持膨胀，而单分子定位常用的含盐缓冲液会让凝胶收缩，所以组合方案往往需要专门的凝胶或缓冲液。</p>
+    </div>
+    <div class="d-wide">
+      <div class="instrument" id="demo-exm">
+        <div class="inst-label"><span>演示 C · 膨胀显微误差预算</span><span>纵轴为膨胀前尺度的有效分辨率，对数坐标</span></div>
+        <div class="inst-grid">
+          <div class="screens">
+            <div class="screen mid-c"><canvas id="exChart" role="img" aria-label="有效分辨率随膨胀倍数变化的曲线"></canvas></div>
+            <div class="legend"><span><i style="background:#4BE095"></i>当前成像方式</span><span><i style="background:rgba(210,227,217,.35)"></i>其他成像方式</span><span><i style="background:#FF6B52"></i>标记误差下限</span></div>
+          </div>
+          <div class="controls">
+            <div><span class="seg-label" id="exOptL">成像方式（未膨胀时的分辨率）</span>
+              <div class="seg" role="group" aria-labelledby="exOptL" id="exOpt">
+                <button type="button" data-v="250" aria-pressed="true">共聚焦 250</button>
+                <button type="button" data-v="150" aria-pressed="false">ISM 150</button>
+                <button type="button" data-v="110" aria-pressed="false">SIM 110</button>
+                <button type="button" data-v="50" aria-pressed="false">STED 50</button>
+                <button type="button" data-v="20" aria-pressed="false">SMLM 20</button>
+              </div></div>
+            <div><span class="seg-label" id="exLabL">标记方式</span>
+              <div class="seg" role="group" aria-labelledby="exLabL" id="exLab">
+                <button type="button" data-v="pre" aria-pressed="true">膨胀前 · 抗体</button>
+                <button type="button" data-v="nb" aria-pressed="false">膨胀前 · 纳米抗体</button>
+                <button type="button" data-v="post" aria-pressed="false">膨胀后 · 抗体</button>
+              </div></div>
+            <div class="ctl"><label for="exE">膨胀倍数 <span class="m"><i>E</i></span></label><output id="exEV" for="exE">4.5×</output><input type="range" id="exE" min="1" max="25" step="0.5" value="4.5"></div>
+            <p class="status" id="exStatus" data-state="ok" aria-live="polite">–</p>
+            <dl class="readout">
+              <div><dt>光学项 d/E</dt><dd id="exR1">–</dd></div>
+              <div><dt>标记项</dt><dd id="exR2">–</dd></div>
+              <div><dt>有效分辨率</dt><dd id="exR3">–</dd></div>
+              <div><dt>荧光团体密度</dt><dd id="exR4">–</dd></div>
+            </dl>
+          </div>
+        </div>
+        <p class="figcap">标记尺寸取一抗加二抗约 15 nm、纳米抗体约 3 nm 的量级。模型忽略了凝胶网格、标记保留率和形变，只用来看两项误差此消彼长的关系。右侧参照线为微管外径、IgG 抗体和 GFP 的大致尺寸。</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- B2 -->
+  <article class="dossier" id="b2">
+    <header class="d-head">
+      <div class="d-code"><b>B2</b><span>2024 Nat. Methods · Wang … Boyden</span></div>
+      <h3>20ExM：一步膨胀 20 倍</h3>
+      <p class="d-thesis">迭代膨胀先胀一次，再嵌入第二个凝胶继续胀，可以达到约 20 倍，但流程长，两次凝胶之间还会引入对齐与形变问题。20ExM 用一种更强韧的单一凝胶一步到位。</p>
+    </header>
+    <aside class="spec" aria-label="B2 规格">
+      <div class="spec-t">规格</div>
+      <dl>
+        <div><dt>分辨率</dt><dd>分块 FRC 17.9 ± 1.3 nm（普通显微镜）</dd></div>
+        <div><dt>时间尺度</dt><dd>单次凝胶化，制样以天计</dd></div>
+        <div><dt>样品</dt><dd>培养细胞、脑组织</dd></div>
+        <div><dt>硬件</dt><dd>普通显微镜；凝胶化需充氮手套袋</dd></div>
+        <div><dt>关键依赖</dt><dd>溶解氧控制、膨胀后抗体染色</dd></div>
+        <div><dt>原文</dt><dd><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11541206" target="_blank" rel="noopener">Nat. Methods 2024</a></dd></div>
+      </dl>
+    </aside>
+    <div class="d-body">
+      <h4>原理</h4>
+      <ul>
+        <li>凝胶主体从丙烯酰胺换成 N,N-二甲基丙烯酰胺（DMAA）与丙烯酸钠。DMAA 形成的网络既能大幅拉伸又不易断裂。</li>
+        <li>溶解氧会抑制自由基聚合，使凝胶质量和膨胀倍数波动。在充氮手套袋中凝胶化以控制氧含量，膨胀就变得可重复。</li>
+        <li>脑组织可以在膨胀后再做抗体染色，标记作用在已经放大的样品上，连接误差随之缩小。</li>
+      </ul>
+      <div class="nums">
+        <div><b>21.5 ± 1.7×</b><span>培养细胞的线性膨胀倍数</span></div>
+        <div><b>18.4 ± 0.3×</b><span>脑组织的线性膨胀倍数</span></div>
+        <div><b>17.9 nm</b><span>分块傅里叶环相关分辨率</span></div>
+      </div>
+      <div class="caveat">
+        <span class="k">局限与开放问题</span>
+        <ul>
+          <li>体积放大约 8000 倍，荧光被同样稀释，信号弱、成像体积巨大：1 µm³ 的样品变成约 8000 µm³。</li>
+          <li>膨胀后染色要求抗原在均质化之后仍能被识别，不是所有靶标都满足。</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- B3 -->
+  <article class="dossier" id="b3">
+    <header class="d-head">
+      <div class="d-code"><b>B3</b><span>2024 Nat. Biotechnol. · Shaib … Rizzoli</span></div>
+      <h3>ONE：膨胀加涨落分析，看单个蛋白的形状</h3>
+      <p class="d-thesis">ONE 把约 10 倍的膨胀与 SRRF 类荧光涨落分析叠加。膨胀把光学极限缩小一个数量级，涨落分析再在剩下的尺度上继续细分，目标是在普通显微镜上看到单个蛋白的外形。</p>
+    </header>
+    <aside class="spec" aria-label="B3 规格">
+      <div class="spec-t">规格</div>
+      <dl>
+        <div><dt>分辨率</dt><dd>声称约 1 nm（FSC/FRC 估计）</dd></div>
+        <div><dt>时间尺度</dt><dd>每个视野录制 1500–2000 帧</dd></div>
+        <div><dt>样品</dt><dd>纯化蛋白、细胞、脑脊液</dd></div>
+        <div><dt>硬件</dt><dd>共聚焦（多数实验）或宽场 EMCCD</dd></div>
+        <div><dt>关键依赖</dt><dd>X10 凝胶、均质化、纯水成像、防漂移成像腔</dd></div>
+        <div><dt>原文</dt><dd><a href="https://synthneuro.org/publications/one-step-nanoscale-expansion-microscopy-reveals-individual-protein-shapes" target="_blank" rel="noopener">Nat. Biotechnol. 2024</a></dd></div>
+      </dl>
+    </aside>
+    <div class="d-body">
+      <h4>流程</h4>
+      <ol>
+        <li><b>锚定与凝胶。</b>Acryloyl-X 锚定，嵌入基于 DMAA 的 X10 凝胶，在蒸馏水中至少膨胀 10 倍。必须在纯水中成像，缓冲液中的离子会让凝胶收缩。</li>
+        <li><b>均质化。</b>蛋白酶 K（8 U/ml，50 °C 过夜），或 110 °C 高压加热 60 分钟（X10ht）。两种方式得到的钙调蛋白结果相近。</li>
+        <li><b>全蛋白标记。</b>膨胀后用 NHS-酯荧光素标记所有蛋白，单个膨胀后的蛋白上分布着许多荧光团。</li>
+        <li><b>涨落分析。</b>录制 1500–2000 帧（范围 200–4000），各荧光团独立闪烁；用 SRRF 的高阶时间统计重建，单分子用 4 阶（TRAC4）。</li>
+      </ol>
+      <div class="nums">
+        <div><b>16–18 Å</b><span>GFP 与 GABA<sub>A</sub> 受体的傅里叶壳相关分辨率</span></div>
+        <div><b>4938</b><span>GABA<sub>A</sub> 受体三维重构所用的二维视图数</span></div>
+        <div><b>≈ 1 nm</b><span>钙调蛋白结合 Ca²⁺ 后长轴的增量</span></div>
+        <div><b>7 : 7</b><span>帕金森病患者与对照脑脊液中 α-突触核蛋白寡聚体完全区分</span></div>
+      </div>
+      <p>这个方法把“膨胀 × 计算”推到了单分子形状的层面，也让一种可能的临床用法变得具体：在脑脊液样本中直接看蛋白聚集体的形态。</p>
+      <div class="caveat">
+        <span class="k">局限与开放问题</span>
+        <ul>
+          <li>轴向只放大 E 倍，轴向与横向分辨率相差一个数量级以上，致密样品中尤其明显。</li>
+          <li>“约 1 nm”来自 FSC、FRC 等统计估计；它与在单个分子上直接分开两个点的距离不是同一个量。</li>
+          <li>固定与均质化可能引入伪影，每种凝胶都需要校准；高倍膨胀下漂移显著，需要专门的成像腔。</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ===================== ROUTE C ===================== -->
+<section class="route" id="route-c" aria-labelledby="rc-h">
+  <div class="route-head">
+    <span class="route-letter" aria-hidden="true">C</span>
+    <p class="eyebrow">Route C · Live-cell structured illumination</p>
+    <h2 id="rc-h">活细胞 SIM：<br>非线性、三维与学习重建</h2>
+    <p>SIM 是活细胞超分辨里光剂量最低的方案之一，但线性 SIM 只能提高约 2 倍，三维、厚样品和低光照条件下也容易出伪影。这条路线的进展分三类：用非线性突破 2 倍，用光片和光开关做真正的三维，用自监督学习在极低光照下重建。</p>
+  </div>
+
+  <!-- C1 -->
+  <article class="dossier" id="c1">
+    <header class="d-head">
+      <div class="d-code"><b>C1</b><span>2005 PNAS（Gustafsson）· 2015 Science（Li 等）· 2025 预印本（PD-NSIM）</span></div>
+      <h3>非线性 SIM：谐波能把频率推多远</h3>
+      <p class="d-thesis">非线性响应让有效激发图样出现谐波，每多一阶可用谐波，频率支撑域就再向外推一个 <span class="m"><i>k</i>₀</span>。能推多远，取决于两个量：可用的谐波阶数，以及照明波长与发射波长之比。</p>
+    </header>
+    <aside class="spec" aria-label="C1 规格">
+      <div class="spec-t">规格</div>
+      <dl>
+        <div><dt>分辨率</dt><dd>饱和激发约 50 nm；PA NL-SIM 62 nm；PD-NSIM 70 nm</dd></div>
+        <div><dt>时间尺度</dt><dd>每帧 25–30 幅原始图像</dd></div>
+        <div><dt>样品</dt><dd>光开关方案可用于活细胞</dd></div>
+        <div><dt>硬件</dt><dd>多波长图案化照明（405/488）</dd></div>
+        <div><dt>关键依赖</dt><dd>谐波信噪比、光开关蛋白的速度与疲劳</dd></div>
+        <div><dt>原文</dt><dd><a href="https://www.laserfocusworld.com/biooptics/bioimaging/fluorescence/article/14191232/superresolution-microscopy-method-images-living-cells-with-unprecedented-clarity-and-speed" target="_blank" rel="noopener">PA NL-SIM 2015</a> · <a href="https://www.biorxiv.org/content/10.1101/2025.05.11.653285" target="_blank" rel="noopener">PD-NSIM 2025</a></dd></div>
+      </dl>
+    </aside>
+    <div class="d-body">
+      <h4>频率账</h4>
+      <p>照明在样品面形成 <span class="m"><i>I</i>(<b><i>r</i></b>) = 1 + <i>m</i> cos(<b><i>k</i></b>₀·<b><i>r</i></b>)</span>。若荧光对照明的响应为 <span class="m"><i>F</i> = <i>f</i>(<i>I</i>)</span>，有效激发图样可以展开成傅里叶级数 <span class="m">Σ<sub><i>j</i></sub> <i>c<sub>j</sub></i> cos(<i>j</i><b><i>k</i></b>₀·<b><i>r</i></b>)</span>，第 <span class="m"><i>j</i></span> 阶把样品频谱平移 <span class="m"><i>j</i><b><i>k</i></b>₀</span>。</p>
+      <div class="eq"><span class="m"><i>k</i><sub>max</sub> = <i>k</i><sub>c</sub> + <i>J</i>·<i>k</i>₀ &nbsp;⇒&nbsp; <span class="frac"><span><i>k</i><sub>max</sub></span><span><i>k</i><sub>c</sub></span></span> ≤ 1 + <i>J</i> · <span class="frac"><span>λ<sub>em</sub></span><span>λ<sub>ex</sub></span></span></span><span class="eq-tag">图样由同一物镜双光束干涉形成时 k₀ ≤ 2NA/λ<sub>ex</sub></span></div>
+      <p>其中 <span class="m"><i>J</i></span> 是信噪比允许利用的最高谐波阶数，<span class="m"><i>k</i><sub>c</sub> = 2NA/λ<sub>em</sub></span> 是探测截止频率。由此可以看出三类非线性的差别：</p>
+      <ul>
+        <li><b>饱和激发与光开关（指数型）。</b><span class="m"><i>F</i> ≈ 1 − e<sup>−<i>sI</i></sup></span> 在原理上含有无穷多阶谐波，<span class="m"><i>J</i></span> 由信噪比决定。Gustafsson 2005 年用饱和激发得到约 50 nm，但光强很高；2015 年的图案化光激活 NL-SIM 用光开关蛋白在活细胞中达到 62 nm，25 幅原始图像。</li>
+        <li><b>多光子激发（多项式型）。</b><span class="m"><i>F</i> ∝ <i>I<sup>n</sup></i></span> 恰好含 <span class="m"><i>n</i></span> 阶谐波，不饱和时阶数确定，响应稳定可预测。但激发波长约为单光子的 <span class="m"><i>n</i></span> 倍，<span class="m">λ<sub>em</sub>/λ<sub>ex</sub></span> 相应约降为 <span class="m">1/<i>n</i></span>，两者相乘后 <span class="m"><i>J</i>·λ<sub>em</sub>/λ<sub>ex</sub></span> 与单光子线性 SIM 相近。以 GFP 为例，双光子（920 nm 激发）为 <span class="m">1 + 2 × 510/920 ≈ 2.11</span>，单光子线性（488 nm）为 <span class="m">1 + 510/488 ≈ 2.05</span>。最高阶谐波也最弱：<span class="m"><i>m</i> = 1</span> 时 <span class="m"><i>I</i>²</span> 的二阶频谱分量只有直流的 1/6。</li>
+        <li><b>多光子 SIM 的实际优势</b>在于散射组织中的穿透深度和固有的光学切片。若要在分辨率上超过线性 SIM，需要让图样的空间频率不再受 <span class="m">2NA/λ<sub>ex</sub></span> 的双光束干涉上限约束，或者引入更高阶的非线性。</li>
+      </ul>
+      <h4>2025 年的 PD-NSIM（rsEGFP2）</h4>
+      <p>每幅原始图像由三次照明组成：405 nm 均匀光把 rsEGFP2 全部打开；488 nm 图案光把强度零点以外的分子关掉；再用相移 π 的 488 nm 图案激发读出剩下的分子。得到的有效激发峰更尖，含有高阶谐波。</p>
+      <div class="nums">
+        <div><b>1.66 NA/λ</b><span>图样频率</span></div>
+        <div><b>5.32 NA/λ</b><span>有效 OTF 边界，宽场的 2.66 倍</span></div>
+        <div><b>30 幅</b><span>5 相位 × 6 方向；每相位重复 5 次平均</span></div>
+        <div><b>70 nm</b><span>活细胞肌动蛋白（宽场 208 nm，SIM 97 nm）</span></div>
+      </div>
+      <p class="note">关闭时间越长，激活峰越窄，但若图样调制不足，所有分子都会被关掉。作者取 10 ms 关闭、6 ms 激发，以平衡一阶和二阶谐波。</p>
+    </div>
+    <div class="d-wide">
+      <div class="instrument" id="demo-nl">
+        <div class="inst-label"><span>演示 D · 非线性 SIM 的频率账</span><span>频率以探测截止 k<sub>c</sub> = 2NA/λ<sub>em</sub> 为单位</span></div>
+        <div class="inst-grid">
+          <div class="screens">
+            <div class="screen" style="aspect-ratio:16/7"><canvas id="nlW" role="img" aria-label="有效激发图样各阶谐波的相对权重柱状图"></canvas><span class="tag-s">各阶频谱分量权重（相对直流）</span></div>
+            <div class="screen" style="aspect-ratio:16/8"><canvas id="nlS" role="img" aria-label="各阶谐波平移后的通带与合成支撑域"></canvas><span class="tag-s">一个照明方向上的支撑域</span></div>
+          </div>
+          <div class="controls">
+            <div><span class="seg-label" id="nlModeL">非线性类型</span>
+              <div class="seg" role="group" aria-labelledby="nlModeL" id="nlMode">
+                <button type="button" data-v="lin" aria-pressed="false">线性</button>
+                <button type="button" data-v="2p" aria-pressed="true">双光子 I²</button>
+                <button type="button" data-v="3p" aria-pressed="false">三光子 I³</button>
+                <button type="button" data-v="sat" aria-pressed="false">饱和 / 光开关</button>
+              </div></div>
+            <div class="ctl"><label for="nlEx">激发波长 λ<sub>ex</sub></label><output id="nlExV" for="nlEx">920 nm</output><input type="range" id="nlEx" min="700" max="1100" step="5" value="920"></div>
+            <div class="ctl"><label for="nlEm">发射波长 λ<sub>em</sub></label><output id="nlEmV" for="nlEm">510 nm</output><input type="range" id="nlEm" min="450" max="700" step="5" value="510"></div>
+            <div class="ctl"><label for="nlNA">数值孔径 NA</label><output id="nlNAV" for="nlNA">1.40</output><input type="range" id="nlNA" min="0.8" max="1.49" step="0.01" value="1.40"></div>
+            <div class="ctl"><label for="nlM">条纹调制深度 <span class="m"><i>m</i></span></label><output id="nlMV" for="nlM">1.00</output><input type="range" id="nlM" min="0.3" max="1" step="0.01" value="1"></div>
+            <div class="ctl"><label for="nlSat">饱和因子 <span class="m"><i>s</i></span></label><output id="nlSatV" for="nlSat">3.0</output><input type="range" id="nlSat" min="0.5" max="12" step="0.1" value="3" disabled></div>
+            <div class="ctl"><label for="nlT">可用阈值（相对直流）</label><output id="nlTV" for="nlT">5 %</output><input type="range" id="nlT" min="1" max="20" step="0.5" value="5"></div>
+          </div>
+        </div>
+        <p class="status" id="nlStatus" data-state="ok" aria-live="polite">–</p>
+        <dl class="readout five">
+          <div><dt>k₀ / k<sub>c</sub> = λ<sub>em</sub>/λ<sub>ex</sub></dt><dd id="nlR1">–</dd></div>
+          <div><dt>可用最高阶 J</dt><dd id="nlR2">–</dd></div>
+          <div><dt>k<sub>max</sub> / k<sub>c</sub></dt><dd id="nlR3">–</dd></div>
+          <div><dt>等效 Abbe 周期</dt><dd id="nlR4">–</dd></div>
+          <div><dt>每方向所需相位</dt><dd id="nlR5">–</dd></div>
+        </dl>
+        <p class="figcap">权重由对 <span class="m"><i>f</i>(1 + <i>m</i> cos θ)</span> 做数值傅里叶分解得到。图样频率取理论上限 <span class="m">2NA/λ<sub>ex</sub></span>，实际系统通常取其 80–95%。下图虚线标出单光子线性 SIM（488 nm 激发、同一发射波长）的边界作为参照。阈值只是一个示意的信噪比门槛，真实可用阶数取决于光子数和重建算法。</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- C2 -->
+  <article class="dossier has-fig" id="c2">
+    <header class="d-head">
+      <div class="d-code"><b>C2</b><span>2026 Nat. Photonics · 李栋组（清华大学）与合作者</span></div>
+      <h3>LA-SIM：晶格光片激活的三维结构光照明</h3>
+      <p class="d-thesis">用三步光学操作，只让焦面附近一层很薄的光开关荧光蛋白处于可发光状态，再在这一层上做结构光读出。一套系统同时得到光片的光学切片、轴向压缩和 SIM 的横向超分辨。</p>
+    </header>
+    <div class="d-wide d-fig">
+      <figure class="diagram">
+      <div class="svgbox">
+        <svg viewBox="0 0 760 252" role="img" aria-label="LA-SIM 三步：405 nm 晶格光片激活焦面附近的分子；中心为零的 488 nm 光场关闭两侧分子使发光层变薄；经探测物镜投射 488 nm 结构光读出">
+          <defs><marker id="ah-la" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L8,4 L0,8 z" class="sv-arrowhead"/></marker></defs>
+          <text x="125" y="20" text-anchor="middle" class="sv-t">① 激活</text>
+          <text x="380" y="20" text-anchor="middle" class="sv-t">② 轴向压缩</text>
+          <text x="635" y="20" text-anchor="middle" class="sv-t">③ 结构光读出</text>
+          <rect x="20" y="30" width="210" height="160" rx="6" class="sv-box2"/>
+          <rect x="275" y="30" width="210" height="160" rx="6" class="sv-box2"/>
+          <rect x="530" y="30" width="210" height="160" rx="6" class="sv-box2"/>
+          <!-- P1 -->
+          <rect x="30" y="80" width="190" height="60" class="sv-sig" opacity=".32"/>
+          <line x1="20" y1="110" x2="230" y2="110" class="sv-thin" stroke-dasharray="4 4"/>
+          <line x1="6" y1="110" x2="40" y2="110" class="sv-excs" marker-end="url(#ah-la)"/>
+          <text x="125" y="58" text-anchor="middle" class="sv-s">405 nm 晶格光片</text>
+          <text x="125" y="160" text-anchor="middle" class="sv-s">焦面附近的 rsFP 被打开</text>
+          <line x1="34" y1="182" x2="34" y2="164" class="sv-line" marker-end="url(#ah-la)"/><text x="40" y="172" class="sv-m">z</text>
+          <line x1="34" y1="182" x2="54" y2="182" class="sv-line" marker-end="url(#ah-la)"/><text x="58" y="186" class="sv-m">x</text>
+          <!-- P2 -->
+          <rect x="285" y="66" width="190" height="31" class="sv-dep" opacity=".24"/>
+          <rect x="285" y="123" width="190" height="31" class="sv-dep" opacity=".24"/>
+          <rect x="285" y="97" width="190" height="26" class="sv-sig" opacity=".55"/>
+          <line x1="275" y1="110" x2="485" y2="110" class="sv-thin" stroke-dasharray="4 4"/>
+          <text x="380" y="58" text-anchor="middle" class="sv-s">488 nm 关闭光，焦面处为零</text>
+          <text x="380" y="172" text-anchor="middle" class="sv-s">两侧分子被关闭，发光层变薄</text>
+          <!-- P3 -->
+          <rect x="540" y="97" width="190" height="26" class="sv-sig" opacity=".22"/>
+          <rect x="544" y="97" width="10" height="26" class="sv-sig"/><rect x="564" y="97" width="10" height="26" class="sv-sig"/><rect x="584" y="97" width="10" height="26" class="sv-sig"/><rect x="604" y="97" width="10" height="26" class="sv-sig"/><rect x="624" y="97" width="10" height="26" class="sv-sig"/><rect x="644" y="97" width="10" height="26" class="sv-sig"/><rect x="664" y="97" width="10" height="26" class="sv-sig"/><rect x="684" y="97" width="10" height="26" class="sv-sig"/><rect x="704" y="97" width="10" height="26" class="sv-sig"/>
+          <line x1="600" y1="186" x2="600" y2="130" class="sv-excs" marker-end="url(#ah-la)"/>
+          <line x1="672" y1="128" x2="672" y2="184" class="sv-sigs" marker-end="url(#ah-la)"/>
+          <text x="635" y="58" text-anchor="middle" class="sv-s">发光层内的条纹状激发</text>
+          <text x="596" y="160" text-anchor="end" class="sv-s">488 nm 结构光</text>
+          <text x="678" y="160" class="sv-s">荧光</text>
+          <!-- between -->
+          <line x1="234" y1="110" x2="270" y2="110" class="sv-line" marker-end="url(#ah-la)"/>
+          <line x1="489" y1="110" x2="525" y2="110" class="sv-line" marker-end="url(#ah-la)"/>
+          <text x="125" y="214" text-anchor="middle" class="sv-s">侧面照明物镜</text>
+          <text x="635" y="214" text-anchor="middle" class="sv-s">探测物镜（沿 z 方向）</text>
+          <text x="380" y="240" text-anchor="middle" class="sv-m">x–z 截面示意 · 虚线为焦面</text>
+        </svg>
+      </div>
+      <figcaption>三步照明在 x–z 截面中的作用。绿色深浅表示处于开态的 rsFP 比例，红色为关闭光。读出用的结构光从探测物镜一侧投射，能用到高数值孔径对应的空间频率。</figcaption>
+    </figure>
+    </div>
+    <aside class="spec" aria-label="C2 规格">
+      <div class="spec-t">规格</div>
+      <dl>
+        <div><dt>分辨率</dt><dd>非线性模式横向约 87 nm、轴向约 203 nm</dd></div>
+        <div><dt>时间尺度</dt><dd>三色约 74 分钟、近 700 个时间点</dd></div>
+        <div><dt>样品</dt><dd>活细胞、小鼠八细胞期胚胎</dd></div>
+        <div><dt>硬件</dt><dd>晶格光片 + 405/488 多光路图案化照明</dd></div>
+        <div><dt>关键依赖</dt><dd>可逆光开关荧光蛋白（rsFP）</dd></div>
+        <div><dt>原文</dt><dd><a href="https://www.tsinghua.edu.cn/info/1175/128516.htm" target="_blank" rel="noopener">清华新闻</a></dd></div>
+      </dl>
+    </aside>
+    <div class="d-body">
+      <h4>原理</h4>
+      <ol>
+        <li><b>激活。</b>405 nm 晶格光片从侧面激活焦面附近的可逆光开关荧光蛋白，焦面外的分子保持关闭，相当于光片切片。</li>
+        <li><b>轴向压缩。</b>中心为零的 488 nm 光场关闭激活层两侧的分子。这和 STED、RESOLFT 的零点思路相同，只是作用在轴向。</li>
+        <li><b>读出。</b>从探测物镜一侧投射互补的 488 nm 结构光，读出荧光的同时把分子送回关闭态。</li>
+        <li><b>非线性模式。</b>两组照明剂量不对称时，rsFP 的非线性响应产生谐波，可进入非线性 SIM 模式，突破线性 SIM 的 2 倍限制。</li>
+      </ol>
+      <h4>计算部分</h4>
+      <ul>
+        <li>两组互补照明给出噪声相互独立的图像，用于自监督去噪（rDL）。</li>
+        <li>三维 Transformer 模型 SRFormer-pMoE（约 12 亿可训练参数，推理时激活约 13%）把高质量超分辨信息迁移到普通晶格光片数据的重建上，兼顾采集速度与多色兼容。</li>
+      </ul>
+      <div class="nums">
+        <div><b>&gt; 2×</b><span>体分辨率相对衍射极限的提升</span></div>
+        <div><b>87 / 203 nm</b><span>非线性模式横向 / 轴向</span></div>
+        <div><b>&gt; 2.5 h</b><span>完整小鼠八细胞期胚胎三维超分辨观测</span></div>
+      </div>
+      <div class="caveat">
+        <span class="k">局限与开放问题</span>
+        <ul>
+          <li>依赖光开关荧光蛋白，亮度、开关疲劳和可用颜色都受限。</li>
+          <li>多光路系统复杂，公开报道中尚未给出具体的体成像速率。</li>
+          <li>十亿参数级的模型需要用独立数据检验泛化，避免在新样品上生成不存在的结构。</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- C3 -->
+  <article class="dossier" id="c3">
+    <header class="d-head">
+      <div class="d-code"><b>C3</b><span>2025 Nat. Methods · 李栋组与合作者</span></div>
+      <h3>Meta-rLLS-VSIM：把一维 SIM 学成各向同性</h3>
+      <p class="d-thesis">晶格光片 SIM 只能沿一个方向加结构光，分辨率只在这个方向提升约 1.5 倍。这项工作用网络在软件里“旋转”超分辨方向，再用反射式双视角补齐轴向，把超分辨扩展到 x、y、z 三个方向。</p>
+    </header>
+    <aside class="spec" aria-label="C3 规格">
+      <div class="spec-t">规格</div>
+      <dl>
+        <div><dt>分辨率</dt><dd>近各向同性：横向约 120 nm、轴向约 160 nm</dd></div>
+        <div><dt>时间尺度</dt><dd>三色全细胞每 8 秒一个体</dd></div>
+        <div><dt>样品</dt><dd>活细胞、花粉管</dd></div>
+        <div><dt>硬件</dt><dd>晶格光片 SIM + 反射式盖玻片</dd></div>
+        <div><dt>关键依赖</dt><dd>元学习预训练模型、少量现场数据微调</dd></div>
+        <div><dt>原文</dt><dd><a href="https://www.biorxiv.org/content/10.1101/2024.05.09.593386v2" target="_blank" rel="noopener">预印本</a> · <a href="https://www.tsinghua.edu.cn/en/info/1245/14274.htm" target="_blank" rel="noopener">清华新闻</a></dd></div>
+      </dl>
+    </aside>
+    <div class="d-body">
+      <h4>原理</h4>
+      <ul>
+        <li><b>虚拟 SIM。</b>网络用成对的晶格光片与一维 LLS-SIM 数据训练，学会沿一个方向添加超分辨。样品中结构的朝向是随机的，所以训练集包含了各个方向的信息。把输入图像旋转到相隔 60° 的三个方向分别推理，再用广义维纳滤波合并，得到横向各向同性的结果。</li>
+        <li><b>反射式双视角。</b>把透明盖玻片换成反射式盖玻片，一次扫描同时得到两个对称的观察视角；自监督网络 RL-DFN 融合两个视角，提升轴向分辨率。</li>
+        <li><b>元学习。</b>元模型在 10 种结构、两种光强下预训练，目的是快速适配而不是直接使用。用户选 3 个感兴趣区域，系统自动采集并微调，最快约 30 秒，从选区到完成通常不到 2.5 分钟。</li>
+      </ul>
+      <div class="nums">
+        <div><b>15.4×</b><span>体分辨率相对常规晶格光片的提升</span></div>
+        <div><b>约 720×</b><span>适配速度相对常规训练；数据量约为 1/12</span></div>
+        <div><b>720+</b><span>COS-7 细胞每 8 秒一个体，持续 1.6 小时</span></div>
+      </div>
+      <div class="caveat">
+        <span class="k">局限与开放问题</span>
+        <ul>
+          <li>超出单向 SIM 的部分来自网络推断，依赖训练结构与实际样品的相似程度。</li>
+          <li>反射式几何对样品放置与盖玻片有专门要求。</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- C4 -->
+  <article class="dossier has-fig" id="c4">
+    <header class="d-head">
+      <div class="d-code"><b>C4</b><span>2025 Nat. Methods · Liu … Li Dong · 谱系：DFCAN（2021）→ rDL（2023）→ SSR-SIM</span></div>
+      <h3>SSR-SIM：不需要真值的自监督重建</h3>
+      <p class="d-thesis">监督学习需要高信噪比的 SIM 图像作为训练目标，而活细胞里恰恰拍不到这种数据。SSR-SIM 让两组噪声独立的原始数据互相监督，网络学不到噪声，只能学到信号。</p>
+    </header>
+    <div class="d-wide d-fig">
+      <figure class="diagram">
+      <div class="svgbox">
+        <svg viewBox="0 0 760 252" role="img" aria-label="SSR-SIM 训练流程：原始数据 A 经常规 SIM 重建作为训练目标；原始数据 B 与照明先验输入网络，输出与目标之差作为损失">
+          <defs><marker id="ah-ssr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L8,4 L0,8 z" class="sv-arrowhead"/></marker></defs>
+          <!-- stacks -->
+          <rect x="32" y="40" width="46" height="46" class="sv-box2"/><rect x="26" y="34" width="46" height="46" class="sv-box2"/><rect x="20" y="28" width="46" height="46" class="sv-box"/>
+          <path d="M26 74 L66 34 M20 60 L52 28 M40 74 L66 48" class="sv-thin"/>
+          <text x="50" y="104" text-anchor="middle" class="sv-t">原始数据 A</text>
+          <rect x="32" y="152" width="46" height="46" class="sv-box2"/><rect x="26" y="146" width="46" height="46" class="sv-box2"/><rect x="20" y="140" width="46" height="46" class="sv-box"/>
+          <path d="M26 186 L66 146 M20 172 L52 140 M40 186 L66 160" class="sv-thin"/>
+          <text x="50" y="216" text-anchor="middle" class="sv-t">原始数据 B</text>
+          <text x="96" y="120" class="sv-s">A 与 B：照明、信号相同</text>
+          <text x="96" y="136" class="sv-s">噪声相互独立</text>
+          <!-- boxes -->
+          <rect x="170" y="38" width="160" height="44" rx="6" class="sv-box"/><text x="250" y="65" text-anchor="middle" class="sv-t">常规 SIM 重建</text>
+          <rect x="420" y="38" width="140" height="44" rx="6" class="sv-box"/><text x="490" y="65" text-anchor="middle" class="sv-t">训练目标</text>
+          <rect x="170" y="150" width="160" height="44" rx="6" class="sv-box" style="stroke:var(--signal)"/><text x="250" y="177" text-anchor="middle" class="sv-t">PHCT 网络</text>
+          <rect x="420" y="150" width="140" height="44" rx="6" class="sv-box"/><text x="490" y="177" text-anchor="middle" class="sv-t">网络输出</text>
+          <rect x="170" y="216" width="160" height="28" rx="6" class="sv-box2"/><text x="250" y="235" text-anchor="middle" class="sv-s">照明图案先验（PPA 模块）</text>
+          <!-- arrows -->
+          <line x1="84" y1="58" x2="166" y2="60" class="sv-line" marker-end="url(#ah-ssr)"/>
+          <line x1="330" y1="60" x2="416" y2="60" class="sv-line" marker-end="url(#ah-ssr)"/>
+          <line x1="84" y1="168" x2="166" y2="172" class="sv-line" marker-end="url(#ah-ssr)"/>
+          <line x1="330" y1="172" x2="416" y2="172" class="sv-line" marker-end="url(#ah-ssr)"/>
+          <line x1="250" y1="216" x2="250" y2="198" class="sv-line" marker-end="url(#ah-ssr)"/>
+          <line x1="490" y1="86" x2="490" y2="146" class="sv-deps" stroke-dasharray="4 3"/>
+          <text x="498" y="112" class="sv-s">损失：两者之差</text>
+          <text x="498" y="128" class="sv-s">（噪声独立，只能拟合信号）</text>
+          <line x1="560" y1="172" x2="600" y2="140" class="sv-line" marker-end="url(#ah-ssr)"/>
+          <rect x="600" y="96" width="150" height="62" rx="6" class="sv-box2"/>
+          <text x="675" y="118" text-anchor="middle" class="sv-t">推理时</text>
+          <text x="675" y="136" text-anchor="middle" class="sv-s">一组原始数据 → 网络</text>
+          <text x="675" y="151" text-anchor="middle" class="sv-s">→ 超分辨图像</text>
+          <text x="120" y="52" text-anchor="middle" class="sv-m">重建</text>
+          <text x="120" y="162" text-anchor="middle" class="sv-m">输入</text>
+        </svg>
+      </div>
+      <figcaption>训练时用 A 的常规重建监督以 B 为输入的网络。两组数据的噪声相互独立，网络若去拟合噪声只会增大损失，所以它学到的是信号与照明图案之间的关系。</figcaption>
+    </figure>
+    </div>
+    <aside class="spec" aria-label="C4 规格">
+      <div class="spec-t">规格</div>
+      <dl>
+        <div><dt>分辨率</dt><dd>NA 1.42 激发时分辨 0.172 µm 线距（Rayleigh 0.215 µm）</dd></div>
+        <div><dt>时间尺度</dt><dd>512×512×9 重建约 17 ms；3D 体约 194 ms</dd></div>
+        <div><dt>样品</dt><dd>活细胞长时程（2000+ 时间点）</dd></div>
+        <div><dt>硬件</dt><dd>常规 TIRF / GI / 3D-SIM</dd></div>
+        <div><dt>关键依赖</dt><dd>两组相同照明的连续采集</dd></div>
+        <div><dt>原文</dt><dd><a href="https://www.nature.com/articles/s41592-025-02966-y" target="_blank" rel="noopener">Nat. Methods 2025</a></dd></div>
+      </dl>
+    </aside>
+    <div class="d-body">
+      <h4>实现要点</h4>
+      <ul>
+        <li>网络 PHCT 为卷积与 Transformer 的混合结构，参数量很小：TIRF/GI 版 0.33 M，3D 版 0.80 M。</li>
+        <li>PPA 模块把照明图案的物理先验注入网络，减轻网络在频域上“自由发挥”。</li>
+        <li>测试覆盖每组原始数据平均 25 到 600 个光子；训练数据从 50–100 对降到 5 对。</li>
+        <li>演示了内吞回收 1500 多个时间点、线粒体嵴 2000 多个时间点，以及病毒糖蛋白与内质网互作、隧道纳米管中的线粒体转移等长时程成像。</li>
+      </ul>
+      <h4>从 DFCAN 到 SSR-SIM</h4>
+      <p>同一团队的工作可以看作一条逐步减少“对真值依赖”的路线：DFCAN（2021）在频域里设计网络结构，用配对数据监督训练；rDL（2023）把成像模型写进网络，降低幻觉风险；SSR-SIM（2025）进一步去掉对高信噪比真值的需求。LA-SIM 中的去噪模块也沿用了“独立噪声互相监督”的思路。</p>
+      <div class="caveat">
+        <span class="k">局限与开放问题</span>
+        <ul>
+          <li>两组数据需要在“信号相同”的时间内采完，快速运动的结构会破坏这个假设。</li>
+          <li>训练目标仍来自常规 SIM 重建，常规重建的系统误差（例如参数估计偏差）会被网络继承。</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ===================== ROUTE D ===================== -->
+<section class="route" id="route-d" aria-labelledby="rd-h">
+  <div class="route-head">
+    <span class="route-letter" aria-hidden="true">D</span>
+    <p class="eyebrow">Route D · Snapshot, label-free &amp; computational</p>
+    <h2 id="rd-h">单帧、无标记与计算</h2>
+    <p>大多数超分辨方法用时间换空间：多帧原始数据，长时间累积。这条路线的工作要么把需要的信息压缩进一帧，要么完全不用荧光，要么用网络补回被省掉的光子。它们共同面对一个问题：怎样证明多出来的细节是真的。</p>
+  </div>
+
+  <!-- D1 -->
+  <article class="dossier has-fig" id="d1">
+    <header class="d-head">
+      <div class="d-code"><b>D1</b><span>2026 Nat. Methods · Guo、Feletti、Radenovic（EPFL）</span></div>
+      <h3>SPIFFI：把时间涨落换成偏振通道间的空间涨落</h3>
+      <p class="d-thesis">SOFI、SRRF 等涨落方法靠分子在不同时刻亮暗不同来区分它们，需要几百帧。SPIFFI 利用的是同一时刻、取向不同的分子在不同偏振通道里亮度不同，因此一帧就够。</p>
+    </header>
+    <div class="d-wide d-fig">
+      <figure class="diagram">
+      <div class="svgbox">
+        <svg viewBox="0 0 760 240" role="img" aria-label="SPIFFI 光路：荧光经物镜收集，非偏振分束后一路直接、一路经半波片旋转 45 度，各自偏振分束，得到 0、90、45、135 度四个通道，成像在同一台相机上；不同取向的分子在各通道中亮度不同">
+          <defs><marker id="ah-sp" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L8,4 L0,8 z" class="sv-arrowhead"/></marker></defs>
+          <!-- sample -->
+          <circle cx="60" cy="120" r="34" class="sv-thin"/>
+          <line x1="41" y1="108" x2="55" y2="108" class="sv-sigs"/>
+          <line x1="67" y1="113" x2="77" y2="103" class="sv-sigs"/>
+          <line x1="48" y1="125" x2="48" y2="139" class="sv-sigs"/>
+          <line x1="67" y1="127" x2="77" y2="137" class="sv-sigs"/>
+          <text x="60" y="176" text-anchor="middle" class="sv-s">取向各异的偶极子</text>
+          <text x="60" y="192" text-anchor="middle" class="sv-s">561 nm 圆偏振激发</text>
+          <!-- objective -->
+          <ellipse cx="118" cy="120" rx="7" ry="32" class="sv-line"/>
+          <text x="118" y="78" text-anchor="middle" class="sv-s">100×/1.49 物镜</text>
+          <line x1="94" y1="120" x2="111" y2="120" class="sv-sigs"/>
+          <line x1="125" y1="120" x2="180" y2="120" class="sv-sigs" marker-end="url(#ah-sp)"/>
+          <!-- NPBS -->
+          <rect x="182" y="103" width="34" height="34" class="sv-box"/><line x1="182" y1="137" x2="216" y2="103" class="sv-line"/>
+          <text x="199" y="94" text-anchor="middle" class="sv-s">50:50 非偏振分束</text>
+          <!-- path A -->
+          <line x1="216" y1="120" x2="398" y2="120" class="sv-sigs" marker-end="url(#ah-sp)"/>
+          <!-- path B -->
+          <line x1="199" y1="137" x2="199" y2="190" class="sv-sigs"/>
+          <line x1="189" y1="200" x2="209" y2="180" class="sv-line"/>
+          <line x1="199" y1="190" x2="398" y2="190" class="sv-sigs" marker-end="url(#ah-sp)"/>
+          <rect x="282" y="176" width="8" height="28" class="sv-box2" style="stroke:currentColor"/>
+          <text x="286" y="224" text-anchor="middle" class="sv-s">半波片：偏振转 45°</text>
+          <!-- PBS -->
+          <rect x="400" y="103" width="34" height="34" class="sv-box"/><line x1="400" y1="137" x2="434" y2="103" class="sv-line"/>
+          <rect x="400" y="173" width="34" height="34" class="sv-box"/><line x1="400" y1="207" x2="434" y2="173" class="sv-line"/>
+          <text x="417" y="94" text-anchor="middle" class="sv-s">偏振分束</text>
+          <text x="417" y="224" text-anchor="middle" class="sv-s">偏振分束</text>
+          <!-- outputs -->
+          <line x1="434" y1="112" x2="594" y2="80" class="sv-sigs" marker-end="url(#ah-sp)"/>
+          <line x1="434" y1="128" x2="594" y2="104" class="sv-sigs" marker-end="url(#ah-sp)"/>
+          <line x1="434" y1="182" x2="594" y2="152" class="sv-sigs" marker-end="url(#ah-sp)"/>
+          <line x1="434" y1="198" x2="594" y2="176" class="sv-sigs" marker-end="url(#ah-sp)"/>
+          <text x="560" y="78" text-anchor="end" class="sv-m">0°</text>
+          <text x="560" y="122" text-anchor="end" class="sv-m">90°</text>
+          <text x="560" y="150" text-anchor="end" class="sv-m">45°</text>
+          <text x="560" y="194" text-anchor="end" class="sv-m">135°</text>
+          <!-- camera -->
+          <rect x="596" y="46" width="150" height="150" rx="4" class="sv-box"/>
+          <rect x="604" y="54" width="64" height="64" class="sv-box2"/><text x="610" y="67" class="sv-m">0°</text>
+          <circle cx="626" cy="86" r="6" class="sv-sig" opacity="1"/><circle cx="648" cy="86" r="6" class="sv-sig" opacity=".56"/><circle cx="626" cy="106" r="6" class="sv-sig" opacity=".12"/><circle cx="648" cy="106" r="6" class="sv-sig" opacity=".56"/>
+          <rect x="676" y="54" width="64" height="64" class="sv-box2"/><text x="682" y="67" class="sv-m">90°</text>
+          <circle cx="698" cy="86" r="6" class="sv-sig" opacity=".12"/><circle cx="720" cy="86" r="6" class="sv-sig" opacity=".56"/><circle cx="698" cy="106" r="6" class="sv-sig" opacity="1"/><circle cx="720" cy="106" r="6" class="sv-sig" opacity=".56"/>
+          <rect x="604" y="126" width="64" height="64" class="sv-box2"/><text x="610" y="139" class="sv-m">45°</text>
+          <circle cx="626" cy="158" r="6" class="sv-sig" opacity=".56"/><circle cx="648" cy="158" r="6" class="sv-sig" opacity="1"/><circle cx="626" cy="178" r="6" class="sv-sig" opacity=".56"/><circle cx="648" cy="178" r="6" class="sv-sig" opacity=".12"/>
+          <rect x="676" y="126" width="64" height="64" class="sv-box2"/><text x="682" y="139" class="sv-m">135°</text>
+          <circle cx="698" cy="158" r="6" class="sv-sig" opacity=".56"/><circle cx="720" cy="158" r="6" class="sv-sig" opacity=".12"/><circle cx="698" cy="178" r="6" class="sv-sig" opacity=".56"/><circle cx="720" cy="178" r="6" class="sv-sig" opacity="1"/>
+          <text x="671" y="216" text-anchor="middle" class="sv-s">同一台 sCMOS</text>
+          <text x="671" y="232" text-anchor="middle" class="sv-s">并排的四个偏振子图</text>
+        </svg>
+      </div>
+      <figcaption>光路示意，未按实际几何绘制。样品中四个分子的取向分别为 0°、45°、90°、135°；相机上每个子图中四个圆点的亮度按 cos²(θ − φ) 计算。同一个分子在四个子图里亮度不同，相当于 SOFI 里不同时刻的四帧。</figcaption>
+    </figure>
+    </div>
+    <aside class="spec" aria-label="D1 规格">
+      <div class="spec-t">规格</div>
+      <dl>
+        <div><dt>分辨率</dt><dd>单帧约 166 nm（宽场 284 nm）；两级模式约 80 nm</dd></div>
+        <div><dt>时间尺度</dt><dd>每帧一幅超分辨图像，无需滑动窗口</dd></div>
+        <div><dt>样品</dt><dd>活细胞、固定细胞</dd></div>
+        <div><dt>硬件</dt><dd>偏振分光模块 + 单台 sCMOS，可加装</dd></div>
+        <div><dt>关键依赖</dt><dd>偶极发射、标记的取向约束</dd></div>
+        <div><dt>原文</dt><dd><a href="https://www.biorxiv.org/content/10.64898/2025.12.12.693764" target="_blank" rel="noopener">预印本</a> · <a href="https://optics.org/news/epfl-enhances-super-resolution-imaging-from-single-camera-exposures" target="_blank" rel="noopener">optics.org</a></dd></div>
+      </dl>
+    </aside>
+    <div class="d-body">
+      <h4>重建流程</h4>
+      <ol>
+        <li>每个通道做滚球背景扣除。</li>
+        <li>虚拟重采样：棋盘式下采样加 Sibson 插值，再加一次 90° 旋转，每个通道得到 5 幅，共 20 幅。</li>
+        <li>预去卷积、打乱顺序后做三阶自相关，得到单帧超分辨图像。</li>
+        <li>两级模式：在连续帧的 SPIFFI 图像上再做三阶 SOFI，需要闪烁标记。作者将其与 9 阶 SOFI 比较，认为可以避开高阶 SOFI 的伪影。</li>
+      </ol>
+      <h4>额外的维度</h4>
+      <p>四个偏振通道同时给出每个位置的偶极取向和线偏振度（DoLP），连同 x、y、z、t，作者称为 6D 成像。例如微管在形态变化时，偶极角从 136.6° 变到 48.5°，DoLP 从 0.30 变到 0.85。</p>
+      <div class="nums">
+        <div><b>166 ± 12 nm</b><span>100 nm 荧光珠单帧横向 FWHM（宽场 284 nm）</span></div>
+        <div><b>385 nm</b><span>轴向（宽场 710 nm）</span></div>
+        <div><b>166 nm</b><span>微管单帧 FRC；eSRRF 用 100 帧为 153 nm</span></div>
+        <div><b>78.9 nm</b><span>两级模式测 80 nm 纳米标尺，用 1500 帧（SMLM 需 10000 帧）</span></div>
+      </div>
+      <div class="caveat">
+        <span class="k">局限与开放问题</span>
+        <ul>
+          <li>单帧提升约 2 倍，与线性 SIM 同一量级；它的优势在时间分辨率和硬件简单。</li>
+          <li>取向信息取决于标记：随机标记、柔性连接臂会降低 DoLP；稀疏标记会让结构碎片化。</li>
+          <li>两级模式需要闪烁缓冲液，且长序列对漂移敏感；三维仍靠轴向扫描。</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- D2 -->
+  <article class="dossier" id="d2">
+    <header class="d-head">
+      <div class="d-code"><b>D2</b><span>2026 Light Sci. Appl. · Küppers、Moerner 等（斯坦福）</span></div>
+      <h3>iISM：无标记的干涉式图像扫描显微</h3>
+      <p class="d-thesis">干涉散射显微（iSCAT）不需要荧光：样品的散射光与盖玻片界面的反射光干涉成像。iISM 把它放进图像扫描显微（ISM）框架，用像素重分配同时拿到闭合针孔的分辨率和开放针孔的信号。</p>
+    </header>
+    <aside class="spec" aria-label="D2 规格">
+      <div class="spec-t">规格</div>
+      <dl>
+        <div><dt>分辨率</dt><dd>横向约 120 nm（60 nm 颗粒的 iPSF 半高宽）</dd></div>
+        <div><dt>时间尺度</dt><dd>受相机帧率限制，无光漂白限制</dd></div>
+        <div><dt>样品</dt><dd>活细胞，无需标记</dd></div>
+        <div><dt>硬件</dt><dd>445 nm 共聚焦扫描 + sCMOS 记录微图像</dd></div>
+        <div><dt>关键依赖</dt><dd>相位感知的像素重分配</dd></div>
+        <div><dt>原文</dt><dd><a href="https://www.biorxiv.org/content/10.1101/2025.09.19.677416" target="_blank" rel="noopener">预印本</a> · <a href="https://news.stanford.edu/stories/2026/03/high-resolution-miscroscope-living-cells-interferometric-image-scanning-microscopy" target="_blank" rel="noopener">斯坦福新闻</a></dd></div>
+      </dl>
+    </aside>
+    <div class="d-body">
+      <h4>原理</h4>
+      <ul>
+        <li><b>ISM 的基本思想。</b>共焦扫描时，偏离光轴的探测像素“看到”的物点大致位于照明点与该像素对应位置的中点。把每个像素的信号移回这个位置再求和（像素重分配），既保留全部光子，又得到接近闭合针孔的分辨率。</li>
+        <li><b>干涉信号带相位。</b>iSCAT 的衬度可正可负，不能像荧光那样直接移位相加。作者先用径向方差变换（RVT）处理，再做自适应像素重分配（APR）。</li>
+        <li><b>照明。</b>445 nm 激光经保偏单模光纤滤波，用圆偏振避免线偏振带来的相位翻转，并调制激光电流降低相干伪影。每个扫描点在相机上记录约 1.4 个 Airy 单位（3 × 3 像素）的微图像。</li>
+      </ul>
+      <div class="nums">
+        <div><b>≈ 0.5 µW</b><span>每个衍射斑的入射功率，约为此前共焦 iSCAT 的 1/10</span></div>
+        <div><b>38 vs 10</b><span>对比噪声比：iISM 与闭合针孔共焦 iSCAT</span></div>
+        <div><b>120 vs 122 nm</b><span>分辨率与闭合针孔相当，信号接近开放针孔</span></div>
+      </div>
+      <p>在活 COS-7 细胞中，无需标记即可看到线粒体、内质网、囊泡、肌动蛋白、质膜和片状伪足，并追踪了囊泡运动与内质网重塑。</p>
+      <div class="caveat">
+        <span class="k">局限与开放问题</span>
+        <ul>
+          <li>没有分子特异性：所有散射体都会成像，细密结构可能被周围的强散射掩盖。</li>
+          <li>衬度符号随轴向位置变化，相似结构可能同时出现正、负衬度，解读需要谨慎。</li>
+          <li>RVT 处理只在中心约 1 Airy 单位内成立；分辨率仍低于荧光超分辨。</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- D3 -->
+  <article class="dossier" id="d3">
+    <header class="d-head">
+      <div class="d-code"><b>D3</b><span>2026 Nat. Commun. · 瑞典皇家理工学院、德累斯顿工业大学等</span></div>
+      <h3>深度学习赋能的延时 RESOLFT</h3>
+      <p class="d-thesis">RESOLFT 用光开关蛋白，所需光强比 STED 低几个数量级，但每个扫描点都要完成激活、关闭、读出，慢且光剂量随帧数累积。两个网络分别从“每帧少用光”和“每帧少扫点”两方面节省。</p>
+    </header>
+    <aside class="spec" aria-label="D3 规格">
+      <div class="spec-t">规格</div>
+      <dl>
+        <div><dt>分辨率</dt><dd>约 60 nm；去噪后平均 FWHM 54–56 nm</dd></div>
+        <div><dt>时间尺度</dt><dd>25% 采样时帧率 ×4；延时总时长约 ×5</dd></div>
+        <div><dt>样品</dt><dd>活细胞</dd></div>
+        <div><dt>硬件</dt><dd>平行化 RESOLFT（MoNaLISA）</dd></div>
+        <div><dt>关键依赖</dt><dd>实验噪声模型、训练数据</dd></div>
+        <div><dt>原文</dt><dd><a href="https://hyper.ai/cn/news/resolft" target="_blank" rel="noopener">中文报道</a></dd></div>
+      </dl>
+    </aside>
+    <div class="d-body">
+      <ul>
+        <li><b>HDN（分层去噪网络）。</b>基于阶梯变分自编码器，并结合实测噪声模型，从低信噪比图像中恢复信号，有无监督和监督两个版本。ON 激活比例可从常规的 80–90% 降到 10–20%，单帧光剂量约降低 10 倍。</li>
+        <li><b>Fast-MoNaLISA。</b>跳过部分扫描点，再用 UNet-RCAN 上采样网络补全。采样 75%、50%、25% 时帧率分别提高约 1.3、2、4 倍。</li>
+        <li>参考真值 FWHM 58 nm 时，HDN 与监督版 HDN 恢复图像的平均 FWHM 分别为 56 nm 和 54 nm。</li>
+      </ul>
+      <div class="caveat">
+        <span class="k">局限与开放问题</span>
+        <ul>
+          <li>被跳过的扫描点上的信息本质上是网络推断的，快速变化或训练中少见的结构最容易出错。</li>
+          <li>噪声模型需要针对具体相机和条件标定。</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- D4 -->
+  <article class="dossier" id="d4">
+    <header class="d-head">
+      <div class="d-code"><b>D4</b><span>综述：2026 Nat. Methods（Li … Chen L.、Zhang Y.）</span></div>
+      <h3>AI 超分辨：谱系与验证</h3>
+      <p class="d-thesis">前面多份档案都含有网络。它们的可信度差别很大，取决于网络受到了多少物理约束，以及结果有没有被独立数据检验。</p>
+    </header>
+    <aside class="spec" aria-label="D4 规格">
+      <div class="spec-t">要点</div>
+      <dl>
+        <div><dt>最可靠</dt><dd>物理约束、自监督、有独立验证</dd></div>
+        <div><dt>最需警惕</dt><dd>无约束的生成式模型、训练分布外样品</dd></div>
+        <div><dt>必须报告</dt><dd>训练数据来源与数量、与测试数据的关系</dd></div>
+        <div><dt>原文</dt><dd><a href="https://www.nature.com/articles/s41592-025-02871-4" target="_blank" rel="noopener">Nat. Methods 综述</a></dd></div>
+      </dl>
+    </aside>
+    <div class="d-body">
+      <h4>四类方法</h4>
+      <ul>
+        <li><b>监督的图像到图像映射。</b>CARE（2018）、DFCAN（2021）等，用配对的低质量与高质量图像训练。效果好，但在训练分布之外容易“编造”看起来合理的结构。</li>
+        <li><b>物理约束与自监督。</b>rDL（2023）、ZS-DeconvNet（2024）、SSR-SIM（2025）、HDN（2026）把成像模型、照明先验或噪声独立性写进训练，减少对真值的依赖。</li>
+        <li><b>单分子检测与定位网络。</b>Deep-STORM（2018）、DECODE（2021）等，在高密度、低光子条件下检测和定位分子，可提高 SMLM 的速度。</li>
+        <li><b>生成式模型。</b>对抗网络、扩散模型生成的图像最逼真，也最需要不确定性评估；综述指出，许多计算机视觉中的新方法在超分辨显微中还没有被充分检验。</li>
+      </ul>
+      <h4>验证清单</h4>
+      <ol>
+        <li><b>独立物理对照。</b>同一样品的 SMLM、STED、电镜，或已知尺寸的纳米标尺、DNA 折纸。</li>
+        <li><b>分布外测试。</b>换细胞类型、换结构、换信噪比，看性能如何下降。</li>
+        <li><b>不确定性图。</b>模型集成、贝叶斯网络或扩散模型多次采样的方差，标出不可信区域。</li>
+        <li><b>残差检查。</b>把输出按成像模型重新模糊，与原始数据比较，NanoJ-SQUIRREL 采用的就是这种思路。</li>
+        <li><b>透明报告。</b>训练数据的来源、数量和与测试数据的关系，以及网络是否见过同类样品。</li>
+      </ol>
+    </div>
+  </article>
+</section>
+
+<!-- ===================== COMPARE ===================== -->
+<section class="plain-sec" id="compare" aria-labelledby="cmp-h">
+  <p class="eyebrow" style="margin:0">Side by side</p>
+  <h2 id="cmp-h">横向对比与选择</h2>
+  <p>同一栏里的数字含义并不相同：有的是定位精度，有的是两点可分辨的距离，有的是 FRC 或 FWHM。对比时先看“指标类型”一列。</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>档案</th><th>技术</th><th>代表指标</th><th>指标类型</th><th>时间尺度</th><th>活细胞</th><th>门槛</th><th>主要瓶颈</th></tr></thead>
+      <tbody>
+        <tr><td class="code">A1</td><td class="name">MINFLUX</td><td class="num">1–3 nm；测距 Å 级</td><td>定位精度</td><td>分钟到小时</td><td>单分子追踪</td><td>专用系统</td><td>标记密度、视场</td></tr>
+        <tr><td class="code">A2</td><td class="name">MINSTED</td><td class="num">4.7 Å</td><td>定位精度</td><td>慢</td><td>否</td><td>STED + 反馈</td><td>连接臂</td></tr>
+        <tr><td class="code">A3</td><td class="name">RESI</td><td class="num">8.5 Å</td><td>两点分辨</td><td>小时</td><td>否</td><td>普通显微镜</td><td>连接误差、耗时</td></tr>
+        <tr><td class="code">A4</td><td class="name">SUM-PAINT</td><td class="num">6.6 nm · 30 重</td><td>定位精度</td><td>约 30 小时</td><td>否</td><td>普通显微镜 + 流体</td><td>抗体质量</td></tr>
+        <tr><td class="code">A5</td><td class="name">ROSE-3D</td><td class="num">轴向 ×3.5–8</td><td>相对精度</td><td>同 SMLM</td><td>否</td><td>干涉光路</td><td>光子数、相位稳定</td></tr>
+        <tr><td class="code">B2</td><td class="name">20ExM</td><td class="num">17.9 nm</td><td>FRC</td><td>制样数天</td><td>否</td><td>普通显微镜</td><td>信号稀释</td></tr>
+        <tr><td class="code">B3</td><td class="name">ONE</td><td class="num">≈ 1 nm</td><td>FSC / FRC</td><td>每视野 1500–2000 帧</td><td>否</td><td>共聚焦</td><td>轴向分辨率、验证</td></tr>
+        <tr><td class="code">C1</td><td class="name">PD-NSIM</td><td class="num">70 nm</td><td>FWHM</td><td>每帧 30 幅</td><td>是</td><td>多波长图案照明</td><td>谐波信噪比</td></tr>
+        <tr><td class="code">C2</td><td class="name">LA-SIM</td><td class="num">87 × 203 nm</td><td>光学分辨率</td><td>74 分钟 / 约 700 点</td><td>是</td><td>复杂多光路</td><td>光开关蛋白</td></tr>
+        <tr><td class="code">C3</td><td class="name">Meta-rLLS-VSIM</td><td class="num">120 × 160 nm</td><td>光学 + 网络</td><td>8 秒 / 体</td><td>是</td><td>晶格光片</td><td>网络推断</td></tr>
+        <tr><td class="code">C4</td><td class="name">SSR-SIM</td><td class="num">0.172 µm 线距</td><td>线对可分辨</td><td>17 ms 重建</td><td>是</td><td>常规 SIM</td><td>两组采集</td></tr>
+        <tr><td class="code">D1</td><td class="name">SPIFFI</td><td class="num">166 nm（单帧）</td><td>FWHM / FRC</td><td>单帧</td><td>是</td><td>偏振分光模块</td><td>仅约 2 倍</td></tr>
+        <tr><td class="code">D2</td><td class="name">iISM</td><td class="num">120 nm</td><td>FWHM</td><td>相机帧率</td><td>是，无标记</td><td>扫描 + 相机</td><td>无分子特异性</td></tr>
+        <tr><td class="code">D3</td><td class="name">深度学习 RESOLFT</td><td class="num">≈ 60 nm</td><td>FWHM</td><td>帧率 ×4</td><td>是</td><td>RESOLFT</td><td>网络推断</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="choose">
+    <div><b>测分子内或复合体内的距离</b><p>MINFLUX 测距或 RESI，配合定点、尽量小的标记。</p></div>
+    <div><b>多种蛋白的纳米级空间关系</b><p>SUM-PAINT；先确认抗体在 DNA-PAINT 条件下的特异性。</p></div>
+    <div><b>大范围组织中的纳米结构</b><p>20ExM，或 4–10 倍膨胀与 SIM、STED 叠加。</p></div>
+    <div><b>单个蛋白的外形、聚集体形态</b><p>ONE；注意轴向分辨率低一个数量级。</p></div>
+    <div><b>活细胞三维长时程</b><p>LA-SIM 或 Meta-rLLS-VSIM；前者需要光开关蛋白。</p></div>
+    <div><b>极低光照下的长时程</b><p>SSR-SIM、深度学习 RESOLFT，并按 D4 的清单做验证。</p></div>
+    <div><b>毫秒级的快速事件</b><p>SPIFFI（单帧超分辨），或 MINFLUX 单分子追踪。</p></div>
+    <div><b>不能或不想标记</b><p>iISM；它看到的是所有散射体，需要其他手段确认身份。</p></div>
+  </div>
+</section>
+
+<!-- ===================== GLOSSARY ===================== -->
+<section class="plain-sec" id="glossary" aria-labelledby="gl-h">
+  <p class="eyebrow" style="margin:0">Glossary</p>
+  <h2 id="gl-h">术语</h2>
+  <dl class="gloss">
+    <div><dt>CRB</dt><dd>Cramér–Rao 下界。任何无偏估计的方差都不能低于它，常用来表示一种测量方式在给定光子数下的最好精度。</dd></div>
+    <div><dt>SBR</dt><dd>信背比。信号光子与背景光子之比，MINFLUX 的精度对它很敏感。</dd></div>
+    <div><dt>TCP</dt><dd>目标坐标图样。MINFLUX 中依次放置零点的几个位置，尺寸记为 L。</dd></div>
+    <div><dt>K</dt><dd>RESI 中每个靶标被定位的次数，精度按 1/√K 提高。</dd></div>
+    <div><dt>连接误差</dt><dd>荧光团与真正靶标之间的距离，来自抗体、纳米抗体、DNA 链等标记本身的尺寸。</dd></div>
+    <div><dt>均质化</dt><dd>膨胀显微中用酶切或热变性破坏样品的刚性，使凝胶能各向同性地膨胀。</dd></div>
+    <div><dt>FRC / FSC</dt><dd>傅里叶环相关 / 壳相关。把数据分成两半独立重建，按两者相关性降到阈值时的频率估计分辨率。</dd></div>
+    <div><dt>rsFP</dt><dd>可逆光开关荧光蛋白，例如 rsEGFP2，可用不同波长的光反复打开、关闭。</dd></div>
+    <div><dt>谐波</dt><dd>非线性响应使有效激发图样含有 2k₀、3k₀ 等频率分量，每一阶都能把频率支撑域再向外推。</dd></div>
+    <div><dt>支撑域</dt><dd>成像系统能测到的空间频率范围。超分辨在频域上的含义就是扩大它。</dd></div>
+    <div><dt>像素重分配</dt><dd>ISM 的核心操作：把偏轴探测像素的信号移回物点的实际位置后再求和。</dd></div>
+    <div><dt>DoLP</dt><dd>线偏振度。0 表示完全非偏振，1 表示完全线偏振，反映荧光团取向的约束程度。</dd></div>
+    <div><dt>独立噪声自监督</dt><dd>用两份信号相同、噪声独立的数据互相监督训练网络，网络只能学到信号。SSR-SIM 与 LA-SIM 都用到这一思路。</dd></div>
+    <div><dt>幻觉</dt><dd>网络输出中看起来合理、但样品中并不存在的结构。</dd></div>
+  </dl>
+</section>
+
+<!-- ===================== SOURCES ===================== -->
+<section class="plain-sec" id="sources" aria-labelledby="src-h">
+  <p class="eyebrow" style="margin:0">Sources</p>
+  <h2 id="src-h">来源</h2>
+  <div class="srcs">
+    <div class="src"><span class="c">A1</span><div><a href="https://arxiv.org/abs/1611.03401" target="_blank" rel="noopener">Nanometer resolution imaging and tracking of fluorescent molecules with minimal photon fluxes</a> <span class="v">· Balzarotti 等 · Science 2017（arXiv）</span></div></div>
+    <div class="src"><span class="c">A1</span><div><a href="https://www.biorxiv.org/content/10.1101/734251" target="_blank" rel="noopener">MINFLUX nanoscopy delivers multicolor nanometer 3D-resolution in (living) cells</a> <span class="v">· Gwosch 等 · Nat. Methods 2020</span></div></div>
+    <div class="src"><span class="c">A1</span><div><a href="https://physicstoday.aip.org/news/superresolution-microscopy-tracks-a-walking-biomolecule" target="_blank" rel="noopener">Superresolution microscopy tracks a walking biomolecule</a> <span class="v">· Physics Today，评述两篇 2023 Science</span></div></div>
+    <div class="src"><span class="c">A1</span><div><a href="https://mbexc.de/intra-molecular-distances-in-biomolecules-measured-optically-with-angstrom-precision/" target="_blank" rel="noopener">Direct optical measurement of intramolecular distances with Ångström precision</a> <span class="v">· Sahl 等 · Science 2024</span></div></div>
+    <div class="src"><span class="c">A1</span><div><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12094232" target="_blank" rel="noopener">Gradual labeling with fluorogenic probes for MINFLUX imaging and tracking</a> <span class="v">· Yao 等 · Sci. Adv. 2025</span></div></div>
+    <div class="src"><span class="c">A1</span><div><a href="https://abberior.rocks/expertise/publications/buffer-free-minflux-imaging-via-nanobody-points-accumulation/" target="_blank" rel="noopener">Buffer-free MINFLUX imaging via nanobody points accumulation</a> <span class="v">· Wang 等 · ACS Photonics 2025</span></div></div>
+    <div class="src"><span class="c">A1</span><div><a href="https://arxiv.org/abs/2410.15902v2" target="_blank" rel="noopener">MINFLUX: molecular resolution with minimal photons</a> <span class="v">· Scheiderer、Marin、Ries · 综述</span></div></div>
+    <div class="src"><span class="c">A2</span><div><a href="https://www.biorxiv.org/content/10.1101/2022.03.18.484906v1.full-text" target="_blank" rel="noopener">MINSTED nanoscopy enters the Ångström localization range</a> <span class="v">· Weber 等 · Nat. Biotechnol. 2023</span></div></div>
+    <div class="src"><span class="c">A3</span><div><a href="https://www.nature.com/articles/s41586-023-05925-9" target="_blank" rel="noopener">Ångström-resolution fluorescence microscopy</a> <span class="v">· Reinhardt 等 · Nature 2023</span></div></div>
+    <div class="src"><span class="c">A4</span><div><a href="https://www.biochem.mpg.de/feeling-the-need-for-speed" target="_blank" rel="noopener">Feeling the need for speed? 100-times faster DNA-PAINT</a> <span class="v">· MPI 生物化学所新闻 · 2020</span></div></div>
+    <div class="src"><span class="c">A4</span><div><a href="https://www.biorxiv.org/content/10.1101/2023.05.17.541210v1" target="_blank" rel="noopener">Spatial proteomics in neurons at single-protein resolution（SUM-PAINT）</a> <span class="v">· Unterauer 等 · Cell 2024</span></div></div>
+    <div class="src"><span class="c">A5</span><div><a href="https://www.nature.com/articles/s41592-025-02911-z" target="_blank" rel="noopener">Molecular-scale isotropic 3D super-resolution microscopy via interference localization</a> <span class="v">· Luo 等 · Nat. Methods 2025</span></div></div>
+    <div class="src"><span class="c">B1</span><div><a href="https://www.scienceintheclassroom.org/research-papers/expanding-limits-optical-resolution" target="_blank" rel="noopener">Expansion microscopy</a> <span class="v">· Chen、Tillberg、Boyden · Science 2015</span></div></div>
+    <div class="src"><span class="c">B2</span><div><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11541206" target="_blank" rel="noopener">Single-shot 20-fold expansion microscopy</a> <span class="v">· Wang 等 · Nat. Methods 2024</span></div></div>
+    <div class="src"><span class="c">B3</span><div><a href="https://synthneuro.org/publications/one-step-nanoscale-expansion-microscopy-reveals-individual-protein-shapes" target="_blank" rel="noopener">One-step nanoscale expansion microscopy reveals individual protein shapes</a> <span class="v">· Shaib 等 · Nat. Biotechnol. 2024</span></div></div>
+    <div class="src"><span class="c">C1</span><div><a href="https://www.laserfocusworld.com/biooptics/bioimaging/fluorescence/article/14191232/superresolution-microscopy-method-images-living-cells-with-unprecedented-clarity-and-speed" target="_blank" rel="noopener">Patterned photoactivation nonlinear SIM</a> <span class="v">· Li 等 · Science 2015（Laser Focus World 报道）</span></div></div>
+    <div class="src"><span class="c">C1</span><div><a href="https://www.biorxiv.org/content/10.1101/2025.05.11.653285" target="_blank" rel="noopener">Two-dimensional nonlinear structured illumination microscopy with rsEGFP2</a> <span class="v">· 预印本 2025</span></div></div>
+    <div class="src"><span class="c">C2</span><div><a href="https://www.tsinghua.edu.cn/info/1175/128516.htm" target="_blank" rel="noopener">晶格光片激活结构光照明超分辨显微镜（LA-SIM）</a> <span class="v">· 清华新闻 · Nat. Photonics 2026</span></div></div>
+    <div class="src"><span class="c">C3</span><div><a href="https://www.biorxiv.org/content/10.1101/2024.05.09.593386v2" target="_blank" rel="noopener">Fast-adaptive super-resolution lattice light-sheet microscopy</a> <span class="v">· Nat. Methods 2025（预印本）</span></div></div>
+    <div class="src"><span class="c">C4</span><div><a href="https://www.nature.com/articles/s41592-025-02966-y" target="_blank" rel="noopener">Self-supervised reconstruction structured illumination microscopy（SSR-SIM）</a> <span class="v">· Liu 等 · Nat. Methods 2025</span></div></div>
+    <div class="src"><span class="c">D1</span><div><a href="https://www.biorxiv.org/content/10.64898/2025.12.12.693764" target="_blank" rel="noopener">SPIFFI enables single-shot super-resolution and multidimensional imaging</a> <span class="v">· Guo 等 · Nat. Methods 2026（预印本）</span></div></div>
+    <div class="src"><span class="c">D2</span><div><a href="https://www.biorxiv.org/content/10.1101/2025.09.19.677416" target="_blank" rel="noopener">Interferometric image scanning microscopy for label-free imaging at 120 nm resolution inside live cells</a> <span class="v">· Küppers 等 · Light Sci. Appl. 2026</span></div></div>
+    <div class="src"><span class="c">D3</span><div><a href="https://hyper.ai/cn/news/resolft" target="_blank" rel="noopener">Time-lapse RESOLFT nanoscopy empowered by deep learning</a> <span class="v">· Nat. Commun. 2026（中文报道）</span></div></div>
+    <div class="src"><span class="c">D4</span><div><a href="https://www.nature.com/articles/s41592-025-02871-4" target="_blank" rel="noopener">AI-empowered super-resolution microscopy: a revolution in nanoscale cellular imaging</a> <span class="v">· Li 等 · Nat. Methods 2026</span></div></div>
+  </div>
+</section>
+
+</main>
+
+<footer class="wrap">
+  <p>演示使用简化模型：MINFLUX 的环形光取解析近似并忽略零点残余；RESI 假设两个位点恰好分到不同条码；膨胀误差只计光学项与标记项；非线性 SIM 的图样频率取理论上限。它们用于建立量级感，不能替代严格仿真。</p>
+  <p>档案中的数字取自原始论文、预印本或机构新闻稿，整理截至 2026 年 10 月。部分工作在正式发表时数字可能与预印本略有不同。</p>
+</footer>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const MONO = '"IBM Plex Mono", ui-monospace, Menlo, monospace';
+const SANS = '"Noto Sans SC", system-ui, sans-serif';
+const C = { sig:'#4BE095', exc:'#6FA3FF', dep:'#FF6B52', grid:'rgba(160,200,180,0.13)', text:'#8FA79A', ink:'#D2E3D9', dim:'rgba(210,227,217,0.32)', white:'rgba(235,245,240,.9)', bg:'#050908' };
+
+function fitCanvas(cv){
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (!w || !h) return null;
+  const W = Math.round(w*dpr), H = Math.round(h*dpr);
+  if (cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; }
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  return { ctx, w, h };
+}
+function rng(seed){ let a = seed>>>0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a>>>15, 1|a); t = t + Math.imul(t ^ t>>>7, 61|t) ^ t; return ((t ^ t>>>14)>>>0)/4294967296; }; }
+function gauss(r){ let u = 0; while (u === 0) u = r(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*r()); }
+function niceStep(x){ const p = Math.pow(10, Math.floor(Math.log10(x))); const f = x/p; return (f<1.5?1:f<3.5?2:f<7.5?5:10)*p; }
+function fmtLen(v){ return v>=10 ? v.toFixed(0)+' nm' : v>=1 ? v.toFixed(1)+' nm' : v>=0.1 ? v.toFixed(2)+' nm' : (v*10).toFixed(2)+' Å'; }
+function fmtBar(v){ return v>=1 ? (v>=10?v.toFixed(0):String(+v.toFixed(1)))+' nm' : (v*10>=1 ? String(+(v*10).toFixed(1))+' Å' : v.toFixed(2)+' nm'); }
+const fmtInt = v => Math.round(v).toLocaleString('en-US');
+function scaleBar(ctx, x, y, len, label){
+  ctx.save(); ctx.strokeStyle = C.white; ctx.fillStyle = C.white; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+len,y); ctx.stroke();
+  ctx.font = `11px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(label, x+len/2, y-4);
+  ctx.restore();
+}
+function throttled(fn){ let q = false; return () => { if (q) return; q = true; requestAnimationFrame(() => { q = false; fn(); }); }; }
+function setStatus(el, state, text){ el.dataset.state = state; el.textContent = text; }
+
+/* =========================================================
+   A · MINFLUX vs camera
+   ========================================================= */
+const MF = { W2: 250*250, T: 160, ang: 0.35, PSF: 100 };
+const mfI = r2 => Math.E*(r2/MF.W2)*Math.exp(-r2/MF.W2);
+function mfPts(L){ const R = L/2; return [[0,0],[R,0],[R*Math.cos(2*Math.PI/3),R*Math.sin(2*Math.PI/3)],[R*Math.cos(4*Math.PI/3),R*Math.sin(4*Math.PI/3)]]; }
+function mfP(x, y, pts, beta, out){
+  let s = 0;
+  for (let i=0;i<4;i++){ const dx=x-pts[i][0], dy=y-pts[i][1]; const v = mfI(dx*dx+dy*dy)+beta; out[i]=v; s+=v; }
+  for (let i=0;i<4;i++) out[i] /= s;
+  return out;
+}
+function mfCRB1(x, y, L, pts, beta){
+  const h = 1e-3*L, z = () => [0,0,0,0];
+  const p = mfP(x,y,pts,beta,z()), a = mfP(x+h,y,pts,beta,z()), b = mfP(x-h,y,pts,beta,z()), c = mfP(x,y+h,pts,beta,z()), d = mfP(x,y-h,pts,beta,z());
+  let fxx=0, fxy=0, fyy=0;
+  for (let i=0;i<4;i++){ if (p[i] < 1e-14) continue; const gx=(a[i]-b[i])/(2*h), gy=(c[i]-d[i])/(2*h); fxx+=gx*gx/p[i]; fxy+=gx*gy/p[i]; fyy+=gy*gy/p[i]; }
+  const det = fxx*fyy - fxy*fxy;
+  if (!(det > 0)) return Infinity;
+  return Math.sqrt((fyy/det + fxx/det)/2);
+}
+const mfNval = () => Math.round(10*Math.pow(10, 2.7*(+$('#mfN').value)/1000));
+const mfSval = () => Math.pow(10, 2*(+$('#mfS').value)/1000);
+const mfRand = rng(7);
+let mf = null;
+function mfRun(){
+  const L = +$('#mfL').value, N = mfNval(), SBR = mfSval(), off = +$('#mfO').value;
+  $('#mfLV').textContent = L+' nm'; $('#mfNV').textContent = fmtInt(N);
+  $('#mfSV').textContent = SBR<10 ? SBR.toFixed(1) : SBR.toFixed(0); $('#mfOV').textContent = off.toFixed(2);
+  const pts = mfPts(L), beta = 3*mfI((L/2)*(L/2))/(4*SBR);
+  const tx = off*L*Math.cos(MF.ang), ty = off*L*Math.sin(MF.ang);
+  const p = mfP(tx,ty,pts,beta,[0,0,0,0]); const c0=p[0], c1=c0+p[1], c2=c1+p[2];
+  const G = 61, span = 0.9*L, gs = 2*span/(G-1), LG = new Float64Array(G*G*4), tmp=[0,0,0,0];
+  for (let j=0;j<G;j++){ const y=-span+j*gs; for (let i=0;i<G;i++){ const x=-span+i*gs; mfP(x,y,pts,beta,tmp); const o=(j*G+i)*4; LG[o]=Math.log(tmp[0]); LG[o+1]=Math.log(tmp[1]); LG[o+2]=Math.log(tmp[2]); LG[o+3]=Math.log(tmp[3]); } }
+  const est = [], n = [0,0,0,0]; let sx=0, sy=0, se=0;
+  for (let t=0;t<MF.T;t++){
+    n[0]=n[1]=n[2]=n[3]=0;
+    for (let q=0;q<N;q++){ const u = mfRand(); n[u<c0?0:u<c1?1:u<c2?2:3]++; }
+    let best=-Infinity, bi=0;
+    for (let g=0,o=0; g<G*G; g++, o+=4){ const ll = n[0]*LG[o]+n[1]*LG[o+1]+n[2]*LG[o+2]+n[3]*LG[o+3]; if (ll>best){ best=ll; bi=g; } }
+    let bx = -span+(bi%G)*gs, by = -span+Math.floor(bi/G)*gs, s = gs;
+    for (let lev=0; lev<3; lev++){
+      const ss = s/4; let bb=-Infinity, nx=bx, ny=by;
+      for (let jj=-4;jj<=4;jj++) for (let ii=-4;ii<=4;ii++){
+        const x=bx+ii*ss, y=by+jj*ss; mfP(x,y,pts,beta,tmp);
+        const ll = n[0]*Math.log(tmp[0])+n[1]*Math.log(tmp[1])+n[2]*Math.log(tmp[2])+n[3]*Math.log(tmp[3]);
+        if (ll>bb){ bb=ll; nx=x; ny=y; }
+      }
+      bx=nx; by=ny; s=ss;
+    }
+    est.push([bx,by]); sx+=bx; sy+=by; se+=((bx-tx)*(bx-tx)+(by-ty)*(by-ty))/2;
+  }
+  const crb1 = mfCRB1(tx,ty,L,pts,beta);
+  mf = { L, N, SBR, off, tx, ty, pts, est, crb1, crb: crb1/Math.sqrt(N), rms: Math.sqrt(se/MF.T), bias: Math.hypot(sx/MF.T-tx, sy/MF.T-ty) };
+  drawMfField(); drawMfCurve();
+  const cam = MF.PSF/Math.sqrt(N);
+  $('#mfR1').textContent = fmtLen(mf.crb);
+  $('#mfR2').textContent = fmtLen(cam);
+  $('#mfR3').textContent = fmtLen(mf.rms);
+  $('#mfR4').textContent = fmtLen(mf.bias);
+  $('#mfR5').textContent = isFinite(crb1) ? fmtInt(Math.max(1, crb1*crb1)) : '—';
+  const st = $('#mfStatus');
+  if (off > 0.5) setStatus(st,'bad',`分子已在图样之外：估计被拉向图样内部，偏差约 ${fmtLen(mf.bias)}。实际系统会先用大 L 粗定位，把图样中心移到估计位置后再缩小 L。`);
+  else if (off > 0.25) setStatus(st,'warn',`分子偏离中心后精度下降到 ${fmtLen(mf.crb)}（中心处为 ${fmtLen(mfCRB1(0,0,L,pts,beta)/Math.sqrt(N))}）。迭代定位把每一轮的图样中心放到上一轮的估计上，正是为了让分子保持在中心附近。`);
+  else { const nc = (MF.PSF/mf.crb)**2; setStatus(st,'ok',`${fmtInt(N)} 个光子时 MINFLUX 精度约 ${fmtLen(mf.crb)}；理想相机要达到同样精度需要约 ${fmtInt(nc)} 个光子，是它的 ${(nc/N).toFixed(0)} 倍。`); }
+}
+function drawMfField(){
+  const f = fitCanvas($('#mfField')); if (!f || !mf) return;
+  const { ctx, w, h } = f, S = mf, V = 0.95*S.L, sc = Math.min(w,h)/(2*V), cx = w/2, cy = h/2;
+  const X = x => cx + x*sc, Y = y => cy - y*sc;
+  ctx.strokeStyle = 'rgba(255,107,82,.4)'; ctx.setLineDash([3,4]); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(cx,cy,S.L/2*sc,0,2*Math.PI); ctx.stroke(); ctx.setLineDash([]);
+  ctx.font = `11px ${MONO}`; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  S.pts.forEach((p,i) => { ctx.strokeStyle = C.dep; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X(p[0]),Y(p[1]),6,0,2*Math.PI); ctx.stroke(); ctx.fillStyle = C.dep; ctx.fillText(String(i), X(p[0])+10, Y(p[1])-9); });
+  ctx.fillStyle = 'rgba(75,224,149,.65)';
+  for (const [x,y] of S.est){ ctx.beginPath(); ctx.arc(X(x),Y(y),1.7,0,2*Math.PI); ctx.fill(); }
+  const tX = X(S.tx), tY = Y(S.ty);
+  ctx.strokeStyle = C.white; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(tX-7,tY); ctx.lineTo(tX+7,tY); ctx.moveTo(tX,tY-7); ctx.lineTo(tX,tY+7); ctx.stroke();
+  const bar = niceStep(V/2.5); scaleBar(ctx, 14, h-14, bar*sc, fmtBar(bar));
+  // zoom inset
+  const Z = 4*Math.max(S.crb, S.rms, 0.05), iw = Math.round(Math.min(w,h)*0.36), ix = w-iw-8, iy = 26, isc = iw/(2*Z);
+  const IX = x => ix + iw/2 + (x-S.tx)*isc, IY = y => iy + iw/2 - (y-S.ty)*isc;
+  ctx.fillStyle = 'rgba(5,9,8,.92)'; ctx.fillRect(ix,iy,iw,iw);
+  ctx.strokeStyle = 'rgba(210,227,217,.35)'; ctx.lineWidth = 1; ctx.strokeRect(ix+.5,iy+.5,iw-1,iw-1);
+  ctx.save(); ctx.beginPath(); ctx.rect(ix,iy,iw,iw); ctx.clip();
+  ctx.fillStyle = 'rgba(75,224,149,.75)';
+  for (const [x,y] of S.est){ ctx.beginPath(); ctx.arc(IX(x),IY(y),1.6,0,2*Math.PI); ctx.fill(); }
+  ctx.strokeStyle = C.white; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.arc(IX(S.tx),IY(S.ty),Math.max(1.5,S.crb*isc),0,2*Math.PI); ctx.stroke(); ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(IX(S.tx)-5,IY(S.ty)); ctx.lineTo(IX(S.tx)+5,IY(S.ty)); ctx.moveTo(IX(S.tx),IY(S.ty)-5); ctx.lineTo(IX(S.tx),IY(S.ty)+5); ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = C.text; ctx.textAlign = 'right'; ctx.textBaseline = 'top'; ctx.font = `10.5px ${MONO}`;
+  ctx.fillText(`放大 · 视野 ±${fmtBar(Z)}`, w-10, iy+iw+5);
+}
+function drawMfCurve(){
+  const f = fitCanvas($('#mfCurve')); if (!f || !mf) return;
+  const { ctx, w, h } = f, pl = 42, pr = 14, pt = 30, pb = 36, W = w-pl-pr, H = h-pt-pb;
+  const lx = v => pl + (Math.log10(v)-1)/3*W, ly = v => pt + (2-Math.log10(v))/3*H;
+  ctx.font = `10.5px ${MONO}`; ctx.lineWidth = 1; ctx.strokeStyle = C.grid; ctx.fillStyle = C.text;
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (const v of [100,10,1,0.1]){ ctx.beginPath(); ctx.moveTo(pl,ly(v)); ctx.lineTo(pl+W,ly(v)); ctx.stroke(); ctx.fillText(v>=1?String(v):'0.1', pl-6, ly(v)); }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (const v of [10,100,1000,10000]){ ctx.beginPath(); ctx.moveTo(lx(v),pt); ctx.lineTo(lx(v),pt+H); ctx.stroke(); ctx.textAlign = v===10?'left':(v===10000?'right':'center'); ctx.fillText(v===10000?'10⁴':String(v), lx(v), pt+H+6); }
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('σ (nm)', 8, 8);
+  ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText('探测光子数 N', pl+W, h-2);
+  ctx.save(); ctx.beginPath(); ctx.rect(pl,pt,W,H); ctx.clip();
+  ctx.setLineDash([3,4]); ctx.strokeStyle = C.dim; ctx.beginPath(); ctx.moveTo(pl,ly(1)); ctx.lineTo(pl+W,ly(1)); ctx.stroke(); ctx.setLineDash([]);
+  const line = (k, col) => { ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); for (let i=0;i<=60;i++){ const N = Math.pow(10, 1+3*i/60), s = k/Math.sqrt(N); i ? ctx.lineTo(lx(N),ly(s)) : ctx.moveTo(lx(N),ly(s)); } ctx.stroke(); };
+  line(MF.PSF, C.exc); if (isFinite(mf.crb1)) line(mf.crb1, C.sig);
+  const dot = (s,col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(lx(mf.N), ly(s), 4.5, 0, 2*Math.PI); ctx.fill(); };
+  dot(MF.PSF/Math.sqrt(mf.N), C.exc); if (isFinite(mf.crb)) dot(mf.crb, C.sig);
+  ctx.restore();
+  ctx.font = `11px ${SANS}`; ctx.textAlign = 'right';
+  ctx.fillStyle = C.exc; ctx.textBaseline = 'bottom'; ctx.fillText('理想相机', lx(4000), ly(MF.PSF/Math.sqrt(4000))-5);
+  if (isFinite(mf.crb1)){ const yv = Math.min(ly(Math.max(mf.crb1/Math.sqrt(4000), 0.1))+5, pt+H-16); ctx.fillStyle = C.sig; ctx.textBaseline = 'top'; ctx.fillText('MINFLUX', lx(4000), yv); }
+  ctx.fillStyle = C.text; ctx.font = `10.5px ${MONO}`; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('1 nm', pl+4, ly(1)-2);
+}
+const mfGo = throttled(mfRun);
+['#mfL','#mfN','#mfS','#mfO'].forEach(id => $(id).addEventListener('input', mfGo));
+
+/* =========================================================
+   B · RESI
+   ========================================================= */
+const reRand = rng(23);
+const reKval = () => Math.round(5*Math.pow(100, (+$('#reK').value)/1000));
+let re = null;
+function reRun(){
+  const d = +$('#reD').value, s = +$('#reS').value, K = reKval(), n = +$('#reN').value, m = +$('#reM').value;
+  $('#reDV').textContent = d.toFixed(1)+' nm'; $('#reSV').textContent = s.toFixed(1)+' nm'; $('#reKV').textContent = K; $('#reNV').textContent = n; $('#reMV').textContent = m;
+  const A = [], B = [];
+  for (let k=0;k<K;k++){ A.push([-d/2+gauss(reRand)*s, gauss(reRand)*s]); B.push([d/2+gauss(reRand)*s, gauss(reRand)*s]); }
+  const mean = P => { let x=0,y=0; for (const p of P){ x+=p[0]; y+=p[1]; } return [x/P.length, y/P.length]; };
+  const sr = s/Math.sqrt(K), RA = [], RB = [];
+  for (let r=0;r<40;r++){ RA.push([-d/2+gauss(reRand)*sr, gauss(reRand)*sr]); RB.push([d/2+gauss(reRand)*sr, gauss(reRand)*sr]); }
+  re = { d, s, K, n, m, A, B, mA: mean(A), mB: mean(B), sr, RA, RB };
+  drawRe();
+  let P = 1; if (m > n) P = 0; else for (let i=0;i<m;i++) P *= (n-i)/n;
+  $('#reR1').textContent = fmtLen(2.35*s);
+  $('#reR2').textContent = fmtLen(sr);
+  $('#reR3').textContent = fmtLen(2.35*sr);
+  $('#reR4').textContent = (P*100).toFixed(1)+' %';
+  $('#reR5').textContent = '1/'+n;
+  const st = $('#reStatus');
+  if (d >= 2.35*s) setStatus(st,'info',`间距 ${d.toFixed(1)} nm 已大于单轮 DNA-PAINT 的分辨率（${fmtLen(2.35*s)}），两团定位云本身就能分开，不需要 RESI。`);
+  else if (d >= 2.35*sr) setStatus(st,'ok',`单轮 DNA-PAINT 中两团定位云完全重叠。RESI 把两个位点分到不同轮次，各自对 ${K} 次定位求平均，精度 ${fmtLen(sr)}，可以分开 ${d.toFixed(1)} nm 的间距。`);
+  else setStatus(st,'bad',`间距 ${d.toFixed(1)} nm 小于 RESI 的等效分辨率 ${fmtLen(2.35*sr)}。需要更多次结合（增大 K）或更高的单次精度。`);
+}
+function drawScatter(cv, V, groups, marks, sites, barLabel){
+  const f = fitCanvas(cv); if (!f) return;
+  const { ctx, w, h } = f, hh = Math.round(h*0.2), ph = h - hh, sc = w/(2*V), cx = w/2, cy = ph/2 + 8;
+  const X = x => cx + x*sc, Y = y => cy - y*sc;
+  ctx.save(); ctx.beginPath(); ctx.rect(0,0,w,ph); ctx.clip();
+  for (const g of groups){ ctx.fillStyle = g.col; for (const p of g.pts){ ctx.beginPath(); ctx.arc(X(p[0]),Y(p[1]),g.r,0,2*Math.PI); ctx.fill(); } }
+  for (const mk of marks){ ctx.strokeStyle = mk.col; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X(mk.x),Y(mk.y),Math.max(4, mk.r*sc),0,2*Math.PI); ctx.stroke(); ctx.fillStyle = mk.col; ctx.beginPath(); ctx.arc(X(mk.x),Y(mk.y),2.2,0,2*Math.PI); ctx.fill(); }
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(160,200,180,.25)'; ctx.beginPath(); ctx.moveTo(0,ph+.5); ctx.lineTo(w,ph+.5); ctx.stroke();
+  const NB = 70, bins = groups.map(() => new Float32Array(NB)); let mx = 1;
+  groups.forEach((g,gi) => { for (const p of g.pts){ const b = Math.floor((p[0]+V)/(2*V)*NB); if (b>=0 && b<NB){ bins[gi][b]++; } } });
+  const tot = new Float32Array(NB); bins.forEach(b => b.forEach((v,i) => { tot[i] += v; }));
+  for (const v of tot) if (v > mx) mx = v;
+  const bw = w/NB;
+  groups.forEach((g,gi) => { ctx.fillStyle = g.hcol; bins[gi].forEach((v,i) => { if (!v) return; const bh = v/mx*(hh-12); ctx.fillRect(i*bw+.5, h-4-bh, bw-1, bh); }); });
+  ctx.fillStyle = C.white;
+  for (const sx of sites){ const px = X(sx); ctx.beginPath(); ctx.moveTo(px, ph+3); ctx.lineTo(px-4, ph+9); ctx.lineTo(px+4, ph+9); ctx.fill(); }
+  const bar = niceStep(V/2.2); scaleBar(ctx, 14, ph-12, bar*sc, barLabel ? barLabel(bar) : fmtBar(bar));
+}
+function drawRe(){
+  if (!re) return;
+  const { d, s, sr } = re, V = Math.max(d/2 + 4*s, 8);
+  drawScatter($('#reA'), V, [{ pts: re.A.concat(re.B), col: 'rgba(75,224,149,.45)', hcol: 'rgba(75,224,149,.75)', r: 1.6 }], [], [-d/2, d/2]);
+  drawScatter($('#reB'), V, [
+    { pts: re.A, col: 'rgba(75,224,149,.45)', hcol: 'rgba(75,224,149,.7)', r: 1.6 },
+    { pts: re.B, col: 'rgba(111,163,255,.45)', hcol: 'rgba(111,163,255,.7)', r: 1.6 }
+  ], [{ x: re.mA[0], y: re.mA[1], r: 0, col: C.white }, { x: re.mB[0], y: re.mB[1], r: 0, col: C.white }], [-d/2, d/2]);
+  const Vc = Math.max(d/2 + 5*sr, 0.5);
+  drawScatter($('#reC'), Vc, [
+    { pts: re.RA, col: 'rgba(75,224,149,.85)', hcol: 'rgba(75,224,149,.8)', r: 2.6 },
+    { pts: re.RB, col: 'rgba(111,163,255,.85)', hcol: 'rgba(111,163,255,.8)', r: 2.6 }
+  ], [], [-d/2, d/2]);
+  $('#reCtag').textContent = `RESI 定位 · 40 次重复 · 视野 ±${fmtBar(Vc)}`;
+}
+const reGo = throttled(reRun);
+['#reD','#reS','#reK','#reN','#reM'].forEach(id => $(id).addEventListener('input', reGo));
+
+/* =========================================================
+   C · Expansion budget
+   ========================================================= */
+const EX = { opt: 250, lab: 'pre', opts: [250,150,110,50,20] };
+const exLabel = (lab, E) => lab === 'pre' ? 15 : lab === 'nb' ? 3 : 15/E;
+const exR = (d, lab, E) => Math.sqrt((d/E)*(d/E) + exLabel(lab,E)*exLabel(lab,E));
+function exRun(){
+  const E = +$('#exE').value; $('#exEV').textContent = E.toFixed(1).replace(/\.0$/,'')+'×';
+  const opt = EX.opt/E, lab = exLabel(EX.lab, E), R = exR(EX.opt, EX.lab, E);
+  $('#exR1').textContent = fmtLen(opt); $('#exR2').textContent = fmtLen(lab); $('#exR3').textContent = fmtLen(R);
+  $('#exR4').textContent = '1 / ' + fmtInt(E*E*E);
+  const st = $('#exStatus');
+  if (lab > opt) setStatus(st,'warn',`标记项（${fmtLen(lab)}）已超过光学项（${fmtLen(opt)}）。继续增大膨胀倍数收益很小，可以改用膨胀后标记或更小的标记。`);
+  else setStatus(st,'ok',`光学项（${fmtLen(opt)}）仍占主导。提高膨胀倍数或换用分辨率更高的成像方式，都能直接改善结果。`);
+  drawEx(E);
+}
+function drawEx(E){
+  const f = fitCanvas($('#exChart')); if (!f) return;
+  const { ctx, w, h } = f, pl = 44, pr = 92, pt = 22, pb = 34, W = w-pl-pr, H = h-pt-pb;
+  const X = e => pl + (e-1)/24*W, Y = v => pt + (Math.log10(300) - Math.log10(v))/(Math.log10(300))*H;
+  ctx.font = `10.5px ${MONO}`; ctx.strokeStyle = C.grid; ctx.fillStyle = C.text; ctx.lineWidth = 1;
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (const v of [300,100,30,10,3,1]){ ctx.beginPath(); ctx.moveTo(pl,Y(v)); ctx.lineTo(pl+W,Y(v)); ctx.stroke(); ctx.fillText(String(v), pl-6, Y(v)); }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (const e of [1,5,10,15,20,25]){ ctx.beginPath(); ctx.moveTo(X(e),pt); ctx.lineTo(X(e),pt+H); ctx.stroke(); ctx.fillText(e+'×', X(e), pt+H+6); }
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('nm', 8, 4);
+  ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText('膨胀倍数 E', pl+W, h-2);
+  // reference structures
+  ctx.font = `10.5px ${SANS}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  for (const [v,lab] of [[25,'微管外径'],[12,'IgG 抗体'],[4,'GFP']]){ ctx.setLineDash([2,4]); ctx.strokeStyle = C.dim; ctx.beginPath(); ctx.moveTo(pl,Y(v)); ctx.lineTo(pl+W,Y(v)); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = C.text; ctx.fillText(`${lab} ~${v} nm`, pl+W+6, Y(v)); }
+  ctx.save(); ctx.beginPath(); ctx.rect(pl,pt,W,H); ctx.clip();
+  const curve = (fn, col, wd, dash) => { ctx.strokeStyle = col; ctx.lineWidth = wd; ctx.setLineDash(dash||[]); ctx.beginPath(); for (let i=0;i<=120;i++){ const e = 1+24*i/120, v = fn(e); i ? ctx.lineTo(X(e),Y(v)) : ctx.moveTo(X(e),Y(v)); } ctx.stroke(); ctx.setLineDash([]); };
+  for (const d of EX.opts) if (d !== EX.opt) curve(e => exR(d,EX.lab,e), 'rgba(210,227,217,.28)', 1.2);
+  curve(e => exLabel(EX.lab,e), C.dep, 1.5, [5,4]);
+  curve(e => exR(EX.opt,EX.lab,e), C.sig, 2.4);
+  const R = exR(EX.opt,EX.lab,E);
+  ctx.fillStyle = C.sig; ctx.beginPath(); ctx.arc(X(E),Y(R),5,0,2*Math.PI); ctx.fill();
+  ctx.restore();
+  ctx.font = `11px ${MONO}`; ctx.fillStyle = C.ink; ctx.textBaseline = 'bottom';
+  const lx = X(E), right = lx > pl + W*0.7; ctx.textAlign = right ? 'right' : 'left';
+  ctx.fillText(fmtLen(R), lx + (right ? -8 : 8), Y(R) - 6);
+  ctx.fillStyle = C.dep; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.font = `10.5px ${SANS}`;
+  const yl = exLabel(EX.lab, 1.6); ctx.fillText('标记误差', X(1.4), Y(yl) + 14);
+}
+function segBind(id, key, after){
+  $$('#'+id+' button').forEach(b => b.addEventListener('click', () => {
+    $$('#'+id+' button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    const v = b.dataset.v; EX[key] = isNaN(+v) ? v : +v; after();
+  }));
+}
+segBind('exOpt', 'opt', exRun); segBind('exLab', 'lab', exRun);
+$('#exE').addEventListener('input', exRun);
+
+/* =========================================================
+   D · Nonlinear SIM frequency budget
+   ========================================================= */
+let nlMode = '2p';
+const NL_RANGE = { lin:[405,640,488], '2p':[700,1100,920], '3p':[1000,1700,1300], sat:[405,640,488] };
+const NL_ORDER = { lin:1, '2p':2, '3p':3, sat:99 };
+function nlCoefs(mode, m, s){
+  const M = 512, J = 8, out = new Float64Array(J+1);
+  const re = new Float64Array(J+1), im = new Float64Array(J+1);
+  for (let t=0;t<M;t++){
+    const th = 2*Math.PI*t/M, I = 1 + m*Math.cos(th);
+    const f = mode==='lin' ? I : mode==='2p' ? I*I : mode==='3p' ? I*I*I : 1 - Math.exp(-s*I);
+    for (let j=0;j<=J;j++){ re[j] += f*Math.cos(j*th); im[j] -= f*Math.sin(j*th); }
+  }
+  for (let j=0;j<=J;j++) out[j] = Math.hypot(re[j], im[j])/M;
+  const c0 = out[0]; for (let j=0;j<=J;j++) out[j] /= c0;
+  return out;
+}
+let nl = null;
+function nlRun(){
+  const ex = +$('#nlEx').value, em = +$('#nlEm').value, NA = +$('#nlNA').value, m = +$('#nlM').value, s = +$('#nlSat').value, thr = +$('#nlT').value/100;
+  $('#nlExV').textContent = ex+' nm'; $('#nlEmV').textContent = em+' nm'; $('#nlNAV').textContent = NA.toFixed(2);
+  $('#nlMV').textContent = m.toFixed(2); $('#nlSatV').textContent = s.toFixed(1); $('#nlTV').textContent = (thr*100).toFixed(thr*100%1?1:0)+' %';
+  const w = nlCoefs(nlMode, m, s);
+  let J = 0; for (let j=1;j<w.length;j++){ if (w[j] >= thr) J = j; else break; }
+  const k0 = em/ex, kmax = 1 + J*k0, kref = 1 + em/488, dAbbe = em/(2*NA*kmax);
+  nl = { w, J, k0, kmax, kref, thr, em, ex };
+  $('#nlR1').textContent = k0.toFixed(2);
+  $('#nlR2').textContent = J;
+  $('#nlR3').textContent = kmax.toFixed(2);
+  $('#nlR4').textContent = dAbbe.toFixed(0)+' nm';
+  $('#nlR5').textContent = J ? (2*J+1)+' 个' : '—';
+  const st = $('#nlStatus');
+  const nOrd = NL_ORDER[nlMode];
+  if (nlMode === 'lin') setStatus(st,'ok',`线性 SIM：k_max/k_c = 1 + λem/λex = ${kmax.toFixed(2)}。激发与发射波长接近，所以提升约 2 倍。`);
+  else if (nlMode === 'sat') setStatus(st, J>=2?'ok':'warn', `饱和因子 s = ${s.toFixed(1)} 时，权重高于阈值的谐波到第 ${J} 阶：k_max/k_c = ${kmax.toFixed(2)}，等效周期约 ${dAbbe.toFixed(0)} nm，代价是每个方向 ${2*J+1} 个相位。增大 s 能推高阶数，但光强与光漂白随之增加。`);
+  else if (J < nOrd) setStatus(st,'warn',`第 ${nOrd} 阶谐波的权重只有 ${(w[nOrd]*100).toFixed(1)}%，低于阈值，只能用到第 ${J} 阶：k_max/k_c = ${kmax.toFixed(2)}，低于单光子线性 SIM 的 ${kref.toFixed(2)}。`);
+  else setStatus(st,'info',`${nOrd} 光子激发提供 ${nOrd} 阶谐波，但 λex 约为单光子的 ${nOrd} 倍：k_max/k_c = 1 + ${J} × ${em}/${ex} = ${kmax.toFixed(2)}，与单光子线性 SIM 的 ${kref.toFixed(2)} 相近。`);
+  drawNl();
+}
+function drawNl(){
+  if (!nl) return;
+  // weights
+  let f = fitCanvas($('#nlW'));
+  if (f){
+    const { ctx, w, h } = f, pl = 40, pr = 12, pt = 30, pb = 26, W = w-pl-pr, H = h-pt-pb, NB = 9;
+    const Y = v => pt + (0 - Math.log10(Math.max(v,1e-3)))/3*H;
+    ctx.font = `10.5px ${MONO}`; ctx.strokeStyle = C.grid; ctx.fillStyle = C.text; ctx.lineWidth = 1; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (const v of [1,0.1,0.01,0.001]){ ctx.beginPath(); ctx.moveTo(pl,Y(v)); ctx.lineTo(pl+W,Y(v)); ctx.stroke(); ctx.fillText(v===1?'1':String(v), pl-6, Y(v)); }
+    const bw = W/NB;
+    for (let j=0;j<NB;j++){
+      const v = nl.w[j], x = pl + j*bw + bw*0.2, bwid = bw*0.6;
+      const usable = j===0 || j<=nl.J;
+      ctx.fillStyle = j===0 ? 'rgba(210,227,217,.6)' : usable ? C.sig : 'rgba(210,227,217,.18)';
+      if (v > 1e-3){ const y = Y(v); ctx.fillRect(x, y, bwid, pt+H-y); }
+      ctx.fillStyle = C.text; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(j===0?'0':String(j), x+bwid/2, pt+H+6);
+      if (j>0 && usable && v>1e-3){ ctx.fillStyle = C.ink; ctx.textBaseline = 'bottom'; ctx.fillText(v>=0.1?v.toFixed(2):v.toFixed(3), x+bwid/2, Y(v)-3); }
+    }
+    ctx.strokeStyle = C.dep; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(pl,Y(nl.thr)); ctx.lineTo(pl+W,Y(nl.thr)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = C.dep; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText('阈值', pl+W, Y(nl.thr)-2);
+    ctx.fillStyle = C.text; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('阶数 j', pl, h-1);
+  }
+  // support
+  f = fitCanvas($('#nlS'));
+  if (f){
+    const { ctx, w, h } = f, pl = 14, pr = 14, pt = 30, pb = 26, W = w-pl-pr;
+    const R = Math.max(3, Math.ceil(nl.kmax + 0.6)), X = k => pl + (k+R)/(2*R)*W;
+    const Jd = Math.min(nl.J, 6), rows = Jd + 2, rh = (h-pt-pb)/rows, barH = Math.min(14, rh*0.55);
+    ctx.font = `10.5px ${MONO}`; ctx.strokeStyle = C.grid; ctx.fillStyle = C.text; ctx.lineWidth = 1; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (let k=-R;k<=R;k++){ ctx.beginPath(); ctx.moveTo(X(k),pt); ctx.lineTo(X(k),h-pb); ctx.stroke(); ctx.fillText(String(k), X(k), h-pb+6); }
+    const wmax = Math.max(...Array.from(nl.w).slice(1, Jd+1), 1e-6);
+    for (let j=0;j<=Jd;j++){
+      const yc = pt + j*rh + rh/2, a = j===0 ? 0.55 : 0.25 + 0.7*Math.sqrt(nl.w[j]/Math.max(wmax,nl.w[j]));
+      ctx.fillStyle = j===0 ? `rgba(210,227,217,${a})` : `rgba(75,224,149,${a})`;
+      for (const sg of (j===0?[1]:[1,-1])){ const c = sg*j*nl.k0; ctx.fillRect(X(c-1), yc-barH/2, X(c+1)-X(c-1), barH); }
+      ctx.fillStyle = C.text; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(j===0?'j=0':`±${j}`, 4, yc - barH/2 - 6 < pt ? yc : yc);
+    }
+    const yU = pt + (Jd+1)*rh + rh/2;
+    ctx.fillStyle = C.sig; ctx.fillRect(X(-nl.kmax), yU-barH/2, X(nl.kmax)-X(-nl.kmax), barH);
+    ctx.fillStyle = C.ink; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.font = `10.5px ${SANS}`; ctx.fillText('合成', 4, yU);
+    ctx.setLineDash([4,3]); ctx.lineWidth = 1.3;
+    ctx.strokeStyle = C.exc; for (const sg of [1,-1]){ ctx.beginPath(); ctx.moveTo(X(sg*nl.kref), pt); ctx.lineTo(X(sg*nl.kref), h-pb); ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(235,245,240,.6)'; for (const sg of [1,-1]){ ctx.beginPath(); ctx.moveTo(X(sg), pt); ctx.lineTo(X(sg), h-pb); ctx.stroke(); }
+    ctx.setLineDash([]);
+    ctx.font = `10.5px ${SANS}`; ctx.fillStyle = C.exc; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('线性 SIM（488）', X(nl.kref)+4, pt-14 < 16 ? 16 : pt-14);
+    ctx.fillStyle = C.text; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.font = `10.5px ${MONO}`; ctx.fillText('k / kc', w-pr, h-2);
+  }
+}
+$$('#nlMode button').forEach(b => b.addEventListener('click', () => {
+  $$('#nlMode button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  nlMode = b.dataset.v; const r = NL_RANGE[nlMode], ex = $('#nlEx');
+  ex.min = r[0]; ex.max = r[1]; ex.value = r[2];
+  $('#nlSat').disabled = nlMode !== 'sat';
+  nlRun();
+}));
+['#nlEx','#nlEm','#nlNA','#nlM','#nlSat','#nlT'].forEach(id => $(id).addEventListener('input', nlRun));
+
+/* =========================================================
+   Nav highlight + init
+   ========================================================= */
+const links = $$('#toc a'), map = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
+if ('IntersectionObserver' in window){
+  const io = new IntersectionObserver(es => { es.forEach(e => { if (e.isIntersecting){ const a = map.get(e.target.id); if (!a) return; links.forEach(x => x.removeAttribute('aria-current')); a.setAttribute('aria-current','true'); const t = $('#toc'), l = a.offsetLeft, r = l + a.offsetWidth; if (l < t.scrollLeft || r > t.scrollLeft + t.clientWidth) t.scrollLeft = l - 12; } }); }, { rootMargin: '-40% 0px -55% 0px' });
+  $$('.route, .plain-sec').forEach(s => io.observe(s));
+}
+function redrawAll(){ drawMfField(); drawMfCurve(); drawRe(); exRun(); drawNl(); }
+mfRun(); reRun(); exRun(); nlRun();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll);
+if ('ResizeObserver' in window){ let t; const ro = new ResizeObserver(() => { clearTimeout(t); t = setTimeout(redrawAll, 80); }); ['#mfField','#reA','#exChart','#nlW'].forEach(id => ro.observe($(id))); }
+})();
+</script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 ---
 # Portrait: avatar.jpg in this folder.
+slug: shiming-wen
 title: Shiming Wen
 first_name: Shiming
 last_name: Wen

@@ -4,8 +4,8 @@
 
 <section class="lab-section" id="team">
   <div class="lab-wrap">
-    <p class="lab-label">Current team</p>
-    <h2 class="lab-h2" style="margin-bottom:36px">{{ .Params.team_title | default "The people behind the work" }}</h2>
+    <p class="lab-label">{{ i18n "lab_current_team" }}</p>
+    <h2 class="lab-h2" style="margin-bottom:36px">{{ .Params.team_title | default (i18n "lab_team_title") }}</h2>
 
     {{ range .Params.groups }}
       {{ $members := where $all "Params.user_groups" "intersect" (slice .key) }}
@@ -47,11 +47,11 @@
 {{ with site.Data.alumni.alumni }}
 <section class="lab-section lab-section--wash" id="alumni">
   <div class="lab-wrap">
-    <p class="lab-label">Alumni</p>
-    <h2 class="lab-h2" style="margin-bottom:24px">Where our members went next</h2>
+    <p class="lab-label">{{ i18n "lab_alumni" }}</p>
+    <h2 class="lab-h2" style="margin-bottom:24px">{{ i18n "lab_alumni_title" }}</h2>
     <div class="lab-table-wrap">
       <table class="lab-table">
-        <thead><tr><th>Name</th><th>Former role / programme</th><th>Years</th><th>Next destination</th></tr></thead>
+        <thead><tr><th>{{ i18n "lab_name" }}</th><th>{{ i18n "lab_former_role" }}</th><th>{{ i18n "lab_years" }}</th><th>{{ i18n "lab_next" }}</th></tr></thead>
         <tbody>
           {{ range . }}<tr><td><strong>{{ .name }}</strong>{{ with .name_zh }} {{ . }}{{ end }}</td><td>{{ .role }}</td><td>{{ .years }}</td><td>{{ .next }}</td></tr>{{ end }}
         </tbody>

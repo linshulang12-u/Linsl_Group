@@ -9,34 +9,36 @@
 
 <section class="lab-motto">
   <div class="lab-wrap">
+    {{ $zh := eq site.Language.Lang "zh" }}
     <p class="lab-motto-en">{{ range $i, $m := .Params.motto }}<span>{{ $m.en }}</span>{{ end }}</p>
     <p class="lab-motto-zh" lang="zh-CN">{{ range $i, $m := .Params.motto }}{{ if $i }}<i aria-hidden="true">·</i>{{ end }}<span>{{ $m.zh }}</span>{{ end }}</p>
   </div>
 </section>
 
+{{ $zh := eq site.Language.Lang "zh" }}
 {{ with .Params.statement }}
 <section class="lab-section">
   <div class="lab-wrap">
-    <div class="lab-bilingual">
+    <div class="lab-bilingual{{ if $zh }} lab-bilingual--zh{{ end }}">
       <div lang="zh-CN" class="lab-zh-block">{{ range .zh }}<p>{{ . }}</p>{{ end }}</div>
-      <div class="lab-en-block">{{ range .en }}<p>{{ . }}</p>{{ end }}</div>
+      {{ if not $zh }}<div class="lab-en-block">{{ range .en }}<p>{{ . }}</p>{{ end }}</div>{{ end }}
     </div>
-    {{ with $.Params.closing }}<p class="lab-closing"><span lang="zh-CN">{{ .zh }}</span><span>{{ .en }}</span></p>{{ end }}
+    {{ with $.Params.closing }}<p class="lab-closing"><span lang="zh-CN">{{ .zh }}</span>{{ if not $zh }}<span>{{ .en }}</span>{{ end }}</p>{{ end }}
   </div>
 </section>
 {{ end }}
 
-{{ with .Params.values }}
+{{ with .Params.values }}{{ $zh := eq site.Language.Lang "zh" }}
 <section class="lab-section lab-section--wash">
   <div class="lab-wrap">
-    <p class="lab-label">Our Values · 核心价值观</p>
+    <p class="lab-label">{{ i18n "lab_values" }}</p>
     <div class="lab-grid lab-grid--4 lab-values">
       {{ range . }}
       <div class="lab-card">
         <h3 class="lab-h3">{{ .en }}</h3>
         <p class="lab-value-zh" lang="zh-CN">{{ .zh }}</p>
         <p lang="zh-CN">{{ .text_zh }}</p>
-        <p class="lab-value-en">{{ .text_en }}</p>
+        {{ if not $zh }}<p class="lab-value-en">{{ .text_en }}</p>{{ end }}
       </div>
       {{ end }}
     </div>

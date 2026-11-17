@@ -1,5 +1,6 @@
 ---
 # Portrait: avatar.jpg in this folder.
+slug: yan-wang
 title: Yan Wang
 first_name: Yan
 last_name: Wang

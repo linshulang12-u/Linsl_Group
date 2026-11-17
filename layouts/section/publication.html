@@ -4,13 +4,13 @@
 {{ $total := len $pubs }}
 <header class="lab-pagehead">
   <div class="lab-wrap">
-    <p class="lab-eyebrow">{{ .Params.eyebrow | default "Research outputs" }}</p>
+    <p class="lab-eyebrow">{{ .Params.eyebrow | default (i18n "lab_research_outputs") }}</p>
     <h1>{{ .Title }}</h1>
     {{ with .Params.lead }}<p class="lab-lead">{{ . | markdownify }}</p>{{ end }}
     {{ if $total }}
     <div class="lab-stats">
-      <div><strong>{{ $total }}</strong>Records</div>
-      <div><strong>{{ (index (last 1 $groups) 0).Key }}–{{ (index $groups 0).Key }}</strong>Newest first</div>
+      <div><strong>{{ $total }}</strong>{{ i18n "lab_records" }}</div>
+      <div><strong>{{ (index (last 1 $groups) 0).Key }}–{{ (index $groups 0).Key }}</strong>{{ i18n "lab_newest_first" }}</div>
     </div>
     <ul class="lab-chips">{{ range $groups }}<li><a href="#y{{ .Key }}">{{ .Key }}</a></li>{{ end }}</ul>
     {{ end }}
@@ -19,11 +19,11 @@
 
 <section class="lab-section">
   <div class="lab-wrap">
-    <p class="lab-muted" style="font-size:.9rem;margin:0"><sup>#</sup> co-first author &nbsp;·&nbsp; <sup>*</sup> corresponding author &nbsp;·&nbsp; <strong>bold</strong> = lab member</p>
+    <p class="lab-muted" style="font-size:.9rem;margin:0"><sup>#</sup> {{ i18n "lab_cofirst" }} &nbsp;·&nbsp; <sup>*</sup> {{ i18n "lab_corresponding" }} &nbsp;·&nbsp; <strong>{{ i18n "lab_bold" }}</strong> {{ i18n "lab_member" }}</p>
     {{ with .Content }}<div class="lab-muted" style="font-size:.9rem;margin-top:8px">{{ . }}</div>{{ end }}
     {{ $n := $total }}
     {{ range $g := $groups }}
-    <div class="lab-year" id="y{{ $g.Key }}"><h2>{{ $g.Key }}</h2><span>{{ len $g.Pages }} {{ if eq (len $g.Pages) 1 }}record{{ else }}records{{ end }}</span></div>
+    <div class="lab-year" id="y{{ $g.Key }}"><h2>{{ $g.Key }}</h2><span>{{ len $g.Pages }} {{ if eq (len $g.Pages) 1 }}{{ i18n "lab_record" }}{{ else }}{{ i18n "lab_records_lc" }}{{ end }}</span></div>
     {{ range $g.Pages }}
       {{ partial "lab/pub_item.html" (dict "page" . "n" $n) }}
       {{ $n = sub $n 1 }}
