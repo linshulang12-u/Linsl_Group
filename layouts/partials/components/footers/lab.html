@@ -1,0 +1,5 @@
+{{ $lab := site.Data.lab }}
+<div class="lab-footer">
+  <p>© {{ now.Year }} {{ $lab.name }}{{ with ($lab.institution_short | default $lab.institution) }}, {{ . }}{{ end }}</p>
+  {{ with $lab.email }}<p><a href="mailto:{{ . }}">{{ . }}</a></p>{{ end }}
+</div>

@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>双轴锥镜光路 · 3D 交互台</title>
+<style>
+:root{
+  --bg:#0b1016;
+  --panel:#131b24;
+  --panel2:#18222d;
+  --line:#25323f;
+  --ink:#dce6ef;
+  --ink-dim:#8698a8;
+  --cyan:#48d3c0;
+  --amber:#f2a93b;
+  --red:#e2604f;
+  --radius:3px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+  font-family:"Inter","Helvetica Neue","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.mono{font-family:"IBM Plex Mono","SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+
+header{padding:14px 20px 12px;border-bottom:1px solid var(--line);display:flex;
+  align-items:baseline;gap:18px;flex-wrap:wrap}
+header h1{margin:0;font-size:17px;font-weight:600;letter-spacing:.01em}
+header p{margin:0;color:var(--ink-dim);font-size:12.5px}
+
+.layout{display:grid;grid-template-columns:290px minmax(0,1fr) 320px;gap:0;
+  height:calc(100vh - 52px);min-height:560px}
+.col{overflow-y:auto;overflow-x:hidden}
+.col.left{border-right:1px solid var(--line);padding:14px 14px 40px}
+.col.right{border-left:1px solid var(--line);padding:14px 14px 40px;background:var(--panel)}
+.stage{position:relative;display:flex;flex-direction:column;min-width:0}
+#c3d{flex:1;width:100%;display:block;cursor:grab}
+#c3d:active{cursor:grabbing}
+
+.group{margin-bottom:18px}
+.group > h3{margin:0 0 8px;font-size:12px;font-weight:600;color:var(--cyan);
+  letter-spacing:.02em;padding-bottom:5px;border-bottom:1px solid var(--line)}
+.ctl{margin:7px 0}
+.ctl .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ctl label{font-size:12.5px;color:var(--ink-dim)}
+.ctl .val{font-size:12.5px;color:var(--ink)}
+input[type=range]{width:100%;margin:2px 0 0;height:18px;-webkit-appearance:none;background:transparent}
+input[type=range]:focus{outline:none}
+input[type=range]:focus-visible{outline:1px solid var(--cyan);outline-offset:3px}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--line)}
+input[type=range]::-moz-range-track{height:2px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;margin-top:-5px;
+  border-radius:50%;background:var(--ink);border:none;cursor:pointer}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:var(--ink);border:none;cursor:pointer}
+input[type=range].warn::-webkit-slider-thumb{background:var(--amber)}
+
+.seg{display:flex;gap:0;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-top:4px}
+.seg button{flex:1;background:transparent;border:none;color:var(--ink-dim);padding:5px 4px;
+  font:inherit;font-size:12px;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:none}
+.seg button[aria-pressed=true]{background:var(--panel2);color:var(--cyan)}
+.seg button:hover{color:var(--ink)}
+
+.btn{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:var(--radius);
+  padding:6px 10px;font:inherit;font-size:12.5px;cursor:pointer}
+.btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.btn.active{border-color:var(--cyan);color:var(--cyan)}
+.btnrow{display:flex;flex-wrap:wrap;gap:6px}
+
+.presets button{flex:1 1 46%;text-align:left;padding:7px 9px;line-height:1.3}
+.presets small{display:block;color:var(--ink-dim);font-size:11px}
+
+#cint{width:100%;display:block;background:#000;border:1px solid var(--line)}
+#cprof{width:100%;display:block;background:var(--panel2);border:1px solid var(--line);margin-top:8px}
+#cxz{width:100%;display:block;background:#000;border:1px solid var(--line);margin-top:6px}
+
+table.read{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+table.read td{padding:2.5px 0;vertical-align:baseline}
+table.read td:first-child{color:var(--ink-dim);white-space:nowrap;padding-right:8px}
+table.read td:last-child{text-align:right}
+
+.badge{display:inline-block;padding:1px 6px;border-radius:2px;font-size:11px}
+.ok{background:rgba(72,211,192,.13);color:var(--cyan)}
+.warn{background:rgba(242,169,59,.15);color:var(--amber)}
+.bad{background:rgba(226,96,79,.15);color:var(--red)}
+
+.hud{position:absolute;left:14px;top:12px;font-size:12px;color:var(--ink-dim);pointer-events:none}
+.hud b{color:var(--ink);font-weight:500}
+.stagebar{display:flex;gap:8px;align-items:center;padding:8px 14px;border-top:1px solid var(--line);
+  flex-wrap:wrap}
+.legend{position:absolute;right:14px;bottom:60px;font-size:11px;color:var(--ink-dim);
+  text-align:right;pointer-events:none;line-height:1.5}
+
+.notes{padding:22px 26px 60px;border-top:1px solid var(--line);max-width:78ch}
+.notes h2{font-size:15px;margin:0 0 10px}
+.notes h4{font-size:13px;margin:18px 0 4px;color:var(--cyan)}
+.notes p,.notes li{color:#b9c8d6;font-size:13px}
+.notes li{margin:3px 0}
+.notes code{background:var(--panel2);padding:1px 4px;border-radius:2px;font-size:12px}
+.sym{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px;margin-right:4px}
+
+@media (max-width:1080px){
+  .layout{grid-template-columns:1fr;height:auto}
+  .col{max-height:none;overflow:visible}
+  .col.left,.col.right{border:none;border-top:1px solid var(--line)}
+  #c3d{height:56vh}
+  .stage{order:-1}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>双轴锥镜光路 · 3D 交互台</h1>
+  <p>平行光 → axicon 1 → 间距 <span class="mono">d</span> → axicon 2（可俯仰／偏摆／横移）→ 观察面。锥角、间距、失调量都可调，右侧给出该处的实测光强分布。</p>
+</header>
+
+<div class="layout">
+
+  <!-- ============ 左栏：控制 ============ -->
+  <div class="col left">
+    <div class="group presets">
+      <h3>典型工况</h3>
+      <div class="btnrow" id="presets"></div>
+    </div>
+    <div class="group" id="g_src"></div>
+    <div class="group" id="g_ax1"></div>
+    <div class="group" id="g_ax2"></div>
+    <div class="group" id="g_mis"></div>
+    <div class="group" id="g_obs"></div>
+    <div class="group">
+      <h3>计算</h3>
+      <div class="ctl"><div class="row"><label>模型</label></div>
+        <div class="seg" id="seg_mode">
+          <button data-v="wave" aria-pressed="true">波动（衍射）</button>
+          <button data-v="ray" aria-pressed="false">几何（光线）</button>
+        </div>
+      </div>
+      <div class="ctl"><div class="row"><label>网格</label></div>
+        <div class="seg" id="seg_N">
+          <button data-v="128">128</button><button data-v="256" aria-pressed="true">256</button><button data-v="512">512</button>
+        </div>
+      </div>
+      <div class="ctl"><div class="row"><label>显示标度</label></div>
+        <div class="seg" id="seg_scale">
+          <button data-v="lin">线性</button><button data-v="sqrt" aria-pressed="true">√</button><button data-v="log">对数</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 中栏：3D ============ -->
+  <div class="stage">
+    <canvas id="c3d"></canvas>
+    <div class="hud">
+      <div>拖动旋转 · 滚轮缩放 · <b id="hud_mag">横向放大 ×—</b></div>
+      <div id="hud_zone" style="margin-top:2px"></div>
+    </div>
+    <div class="legend">
+      <div><span class="sym" style="background:#48d3c0"></span>入射平行光</div>
+      <div><span class="sym" style="background:#f2a93b"></span>axicon 1 之后的锥形波</div>
+      <div><span class="sym" style="background:#c86bd8"></span>axicon 2 之后</div>
+      <div>颜色深浅 = 入射高度 r</div><div>亮环 = 同一时刻的波前</div>
+    </div>
+    <div class="stagebar">
+      <button class="btn" id="btn_spin">自动旋转</button>
+      <button class="btn" id="btn_zscan">沿 z 扫描</button>
+      <button class="btn" id="btn_reset">复位视角</button>
+      <span class="mono" id="stat" style="color:var(--ink-dim);font-size:12px;margin-left:auto"></span>
+    </div>
+  </div>
+
+  <!-- ============ 右栏：光强 ============ -->
+  <div class="col right">
+    <div class="group">
+      <h3>观察面光强 <span class="mono" id="lab_z" style="color:var(--ink);font-weight:400"></span></h3>
+      <canvas id="cint" width="300" height="300"></canvas>
+      <canvas id="cprof" width="300" height="110"></canvas>
+      <div class="ctl" id="c_hw"></div>
+    </div>
+    <div class="group">
+      <h3>读数</h3>
+      <table class="read" id="readout"></table>
+    </div>
+    <div class="group">
+      <h3>轴向剖面 x–z</h3>
+      <p style="color:var(--ink-dim);font-size:12px;margin:0">从 axicon 1 一直算到观察面的中心切片，能直接看到贝塞尔区、环的形成与失调造成的走离。</p>
+      <div class="btnrow" style="margin-top:8px">
+        <button class="btn" id="btn_xz">计算 x–z 剖面</button>
+      </div>
+      <canvas id="cxz" width="320" height="150"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <h2>怎么用它学对光</h2>
+  <p>把 axicon 2 的失调量从 0 慢慢加大，同时来回拉观察面的 <code>z</code>，注意光强图<strong>变化的方式</strong>——每一种失调都有自己独特的signature，认得出signature，才谈得上对光。</p>
+
+  <h4>三种失调的识别特征</h4>
+  <ul>
+    <li><strong>横移 Δ（最灵敏）</strong>：环的亮度沿方位角变得不均匀，一侧亮一侧暗，继续加大变成月牙。环心也随之偏。判据是 Δ 与 axicon 2 处的光斑半径之比——这是一阶效应，Δ 只要到光斑尺寸的十分之一就看得出来。</li>
+    <li><strong>俯仰／偏摆 θ（对角度本身不灵敏）</strong>：锥面在倾斜方向上的有效锥角按 <code>1/cos²θ</code> 变大，环变成<strong>椭圆</strong>，同时出现像散——沿 z 扫描时，环在一个方向先收紧、另一个方向后收紧。相对量只有 θ² 量级，θ=2° 才 0.12%。所以纯倾斜本身很宽容。</li>
+    <li><strong>倾斜通过转轴臂变成横移</strong>：真实镜架不绕锥尖转，绕的是镜架背后的某个点。把「转轴臂长」拉到 20–30 mm 再调俯仰，你会看到主要变化不是椭圆而是月牙——<strong>实验室里所谓"倾斜很敏感"，敏感的其实是它顺带引入的横移</strong>。这一条是这个演示最值得记住的结论。</li>
+  </ul>
+
+  <h4>对光的顺序</h4>
+  <ul>
+    <li>先定基准轴：只放 axicon 1，用远近两个靶（近处一个、尽量远处一个）反复迭代，让贝塞尔亮核在两处都落在同一标记上。近处的靶主要反映横移，远处的靶主要反映角度，两点法就是靠这个解耦。</li>
+    <li>再插入 axicon 2，<strong>只动横移</strong>，判据是"环沿一周亮度均匀"，不是"环看起来居中"。均匀性比居中灵敏得多。</li>
+    <li>最后动俯仰／偏摆，判据是"环是正圆而不是椭圆"。若一动倾斜环就偏心，说明转轴臂长不为零，需要"倾斜—横移"交替走位（walk the beam）。</li>
+    <li>验收：沿 z 扫描 100 mm 以上，匹配良好的一对轴锥镜给出的环<strong>半径应当基本不变</strong>（准直环）。半径随 z 线性变化说明两个锥角没匹配上；环心随 z 漂移说明入射光与 axicon 1 的轴不平行。</li>
+  </ul>
+
+  <h4>为什么间距能调环半径</h4>
+  <p>axicon 1 把每条光线朝轴偏折固定角 <code>β₁=(n−1)tanα₁</code>，走过 d 之后光线高度整体平移了 <code>β₁d</code>；只要 <code>β₁d</code> 大于束半径，所有光线都已越过光轴，此时第二个同样的正轴锥镜把它们全部拉回平行，得到一个厚度约等于入射束宽的准直环。注意映射是 <code>r → β₁d − r</code> 的翻折，环上强度还要乘雅可比 <code>r/|β₁d−r|</code>，所以<strong>亮度峰值半径约为 β₁d − w/2</strong>，只有在 <code>β₁d ≫ w</code> 时才趋近教科书上的 <code>β₁d</code>。这正是把高斯光变成环形光瞳最省能量的做法（>90%），比灰度片高一个量级。</p>
+
+  <h4>模型边界</h4>
+  <p>标量衍射 + 薄元件近似（轴锥镜按其光程厚度写成相位屏，倾斜按投影展开到 θ 的二阶）；axicon 1 定义为基准轴，不含材料色散、面型误差、反射损耗。角谱传播带 Matsushima 带限，网格窗口按锥角自动取到奈奎斯特允许的最大值——右上角出现"采样不足"时请减小锥角或提高网格。3D 视图中横向尺度被放大了若干倍（数值见左上角），轴锥镜为示意画法，真实锥角只有约 1°。</p>
+</div>
+
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s);
+const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+const D2R=Math.PI/180;
+
+/* ================= 参数 ================= */
+const P={
+  lambda_nm:1030, n:1.45, profile:'gauss', w:1.0, ap:6.0,
+  a1:0.7, a2:0.7, s2:1, d:400,
+  tx:0, ty:0, dx:0, dy:0, pivot:0,
+  z:150, hw:3.5,
+  N:256, mode:'wave', scale:'sqrt'
+};
+
+/* ================= FFT ================= */
+class FFT{
+  constructor(n){
+    this.n=n; this.levels=Math.round(Math.log2(n));
+    this.cos=new Float64Array(n/2); this.sin=new Float64Array(n/2);
+    for(let i=0;i<n/2;i++){this.cos[i]=Math.cos(2*Math.PI*i/n);this.sin[i]=Math.sin(2*Math.PI*i/n);}
+    this.rev=new Int32Array(n);
+    for(let i=0;i<n;i++){let x=i,r=0;for(let j=0;j<this.levels;j++){r=(r<<1)|(x&1);x>>=1;}this.rev[i]=r;}
+  }
+  run(re,im,off,inv){
+    const n=this.n,rev=this.rev;
+    for(let i=0;i<n;i++){const j=rev[i];if(j>i){
+      let t=re[off+i];re[off+i]=re[off+j];re[off+j]=t;
+      t=im[off+i];im[off+i]=im[off+j];im[off+j]=t;}}
+    for(let size=2;size<=n;size<<=1){
+      const half=size>>1, step=n/size;
+      for(let i=0;i<n;i+=size){
+        for(let j=i,k=0;j<i+half;j++,k+=step){
+          const l=j+half, c=this.cos[k], s=inv?this.sin[k]:-this.sin[k];
+          const tr=re[off+l]*c-im[off+l]*s, ti=re[off+l]*s+im[off+l]*c;
+          re[off+l]=re[off+j]-tr; im[off+l]=im[off+j]-ti;
+          re[off+j]+=tr; im[off+j]+=ti;
+        }
+      }
+    }
+    if(inv){const f=1/n;for(let i=0;i<n;i++){re[off+i]*=f;im[off+i]*=f;}}
+  }
+}
+const fftCache={};
+const getFFT=n=>fftCache[n]||(fftCache[n]=new FFT(n));
+
+let tmpR=null,tmpI=null;
+function fft2(re,im,N,inv){
+  const F=getFFT(N);
+  if(!tmpR||tmpR.length<N){tmpR=new Float64Array(N);tmpI=new Float64Array(N);}
+  for(let y=0;y<N;y++) F.run(re,im,y*N,inv);         // 行
+  for(let x=0;x<N;x++){                               // 列
+    for(let y=0;y<N;y++){tmpR[y]=re[y*N+x];tmpI[y]=im[y*N+x];}
+    F.run(tmpR,tmpI,0,inv);
+    for(let y=0;y<N;y++){re[y*N+x]=tmpR[y];im[y*N+x]=tmpI[y];}
+  }
+}
+function propagate(re,im,N,dxs,lam,z){
+  if(Math.abs(z)<1e-9) return;
+  fft2(re,im,N,false);
+  const L=N*dxs, df=1/L, inv2=1/(lam*lam);
+  const flim=1/(lam*Math.sqrt(4*z*z/(L*L)+1));
+  for(let iy=0;iy<N;iy++){
+    const fy=((iy<N/2)?iy:iy-N)*df;
+    for(let ix=0;ix<N;ix++){
+      const idx=iy*N+ix, fx=((ix<N/2)?ix:ix-N)*df;
+      const s=inv2-fx*fx-fy*fy;
+      if(s<=0||Math.abs(fx)>flim||Math.abs(fy)>flim){re[idx]=0;im[idx]=0;continue;}
+      const ph=2*Math.PI*z*Math.sqrt(s), c=Math.cos(ph), sn=Math.sin(ph);
+      const a=re[idx], b=im[idx];
+      re[idx]=a*c-b*sn; im[idx]=a*sn+b*c;
+    }
+  }
+  fft2(re,im,N,true);
+}
+function edgeMask(re,im,N){
+  for(let y=0;y<N;y++){
+    const v=(y-N/2)/(N/2);
+    for(let x=0;x<N;x++){
+      const u=(x-N/2)/(N/2), r=Math.max(Math.abs(u),Math.abs(v));
+      if(r>0.86){const t=Math.min(1,(r-0.86)/0.14),m=0.5*(1+Math.cos(Math.PI*t));
+        re[y*N+x]*=m; im[y*N+x]*=m;}
+    }
+  }
+}
+
+/* ================= 几何 ================= */
+const G={};
+function updateGeom(){
+  G.lam=P.lambda_nm*1e-6;                     // mm
+  G.k=2*Math.PI/G.lam;
+  G.b1=(P.n-1)*Math.tan(P.a1*D2R);
+  G.b2=(P.n-1)*Math.tan(P.a2*D2R);
+  const cx=Math.cos(P.tx*D2R), sx=Math.sin(P.tx*D2R);
+  const cy=Math.cos(P.ty*D2R), sy=Math.sin(P.ty*D2R);
+  // R = Rx(tx)·Ry(ty)
+  const u=[cy, sx*sy, -cx*sy];      // R·x̂
+  const v=[0,  cx,     sx];         // R·ŷ
+  const nn=[sy,-sx*cy, cx*cy];      // R·ẑ  (面法线)
+  G.Nz=nn[2];
+  G.a11=u[0]-u[2]*nn[0]/nn[2];  G.a12=u[1]-u[2]*nn[1]/nn[2];
+  G.a21=v[0]-v[2]*nn[0]/nn[2];  G.a22=v[1]-v[2]*nn[1]/nn[2];
+  G.ex=P.dx-P.pivot*nn[0];      // 转轴臂带来的附加横移
+  G.ey=P.dy-P.pivot*nn[1];
+  G.ringR=G.b1*P.d;
+  G.zmaxBessel=P.w/Math.max(G.b1,1e-9);
+}
+function rho2(x,y){
+  const X=x-G.ex, Y=y-G.ey;
+  const u=G.a11*X+G.a12*Y, v=G.a21*X+G.a22*Y;
+  return [Math.sqrt(u*u+v*v), u, v];
+}
+function kick2(x,y){
+  const [r,u,v]=rho2(x,y);
+  if(r<1e-9) return [0,0];
+  const gx=(u*G.a11+v*G.a21)/r, gy=(u*G.a12+v*G.a22)/r;
+  const c=-P.s2*G.b2/G.Nz;
+  return [c*gx,c*gy];
+}
+function amp(r){
+  if(P.profile==='gauss') return Math.exp(-(r*r)/(P.w*P.w));
+  const e=(r-P.w)/0.03; return r<P.w-0.03?1:(r>P.w+0.03?0:0.5*(1-Math.tanh(e*2)));
+}
+
+/* ================= 波动场 ================= */
+const W={ready:false};
+function buildField(){
+  const N=P.N;
+  updateGeom();
+  const btot=G.b1+G.b2;
+  const Lnyq=0.95*G.lam*N/(2*Math.max(btot,1e-6));
+  const want=2.8*(P.w+Math.abs(G.ringR)+Math.abs(G.ex)+Math.abs(G.ey))+1.0;
+  const L=Math.min(Lnyq, Math.max(want, 3*P.w));
+  W.N=N; W.L=L; W.dx=L/N; W.alias=(want>Lnyq*1.02);
+  const dxs=W.dx, k=G.k;
+  const re=new Float64Array(N*N), im=new Float64Array(N*N);
+  for(let iy=0;iy<N;iy++){
+    const y=(iy-N/2)*dxs;
+    for(let ix=0;ix<N;ix++){
+      const x=(ix-N/2)*dxs, r=Math.hypot(x,y);
+      let A=(r<=P.ap)?amp(r):0;
+      if(A>0){const ph=-k*G.b1*r; const i=iy*N+ix; re[i]=A*Math.cos(ph); im[i]=A*Math.sin(ph);}
+    }
+  }
+  W.re1=re.slice(); W.im1=im.slice();          // axicon 1 之后（给 x–z 剖面用）
+  propagate(re,im,N,dxs,G.lam,P.d);
+  edgeMask(re,im,N);
+  applyAx2(re,im,N,dxs);
+  W.re2=re; W.im2=im; W.ready=true;
+}
+function applyAx2(re,im,N,dxs){
+  const k=G.k, c=-P.s2*k*G.b2/G.Nz;
+  for(let iy=0;iy<N;iy++){
+    const y=(iy-N/2)*dxs;
+    for(let ix=0;ix<N;ix++){
+      const x=(ix-N/2)*dxs, i=iy*N+ix;
+      if(re[i]===0&&im[i]===0) continue;
+      const ph=c*rho2(x,y)[0];
+      const cs=Math.cos(ph), sn=Math.sin(ph);
+      const a=re[i], b=im[i];
+      re[i]=a*cs-b*sn; im[i]=a*sn+b*cs;
+    }
+  }
+}
+function waveIntensity(z){
+  const N=W.N;
+  const re=W.re2.slice(), im=W.im2.slice();
+  propagate(re,im,N,W.dx,G.lam,z);
+  const I=new Float64Array(N*N);
+  for(let i=0;i<N*N;i++) I[i]=re[i]*re[i]+im[i]*im[i];
+  return I;
+}
+
+/* ================= 几何光线 ================= */
+let RAYS=null;
+function traceBundle(){
+  const Nr=180, Na=256;
+  const px=new Float64Array(Nr*Na), py=new Float64Array(Nr*Na);
+  const ux=new Float64Array(Nr*Na), uy=new Float64Array(Nr*Na), wt=new Float64Array(Nr*Na);
+  const rmax=Math.min(P.ap, (P.profile==='gauss'?2.4*P.w:P.w*1.02));
+  let m=0;
+  for(let i=0;i<Nr;i++){
+    const r=rmax*(i+0.5)/Nr, A=amp(r);
+    for(let j=0;j<Na;j++){
+      const th=2*Math.PI*j/Na;
+      let x=r*Math.cos(th), y=r*Math.sin(th);
+      let vx=-G.b1*Math.cos(th), vy=-G.b1*Math.sin(th);
+      x+=vx*P.d; y+=vy*P.d;
+      const kk=kick2(x,y); vx+=kk[0]; vy+=kk[1];
+      px[m]=x;py[m]=y;ux[m]=vx;uy[m]=vy;wt[m]=A*A*r;m++;
+    }
+  }
+  RAYS={px,py,ux,uy,wt,n:m};
+}
+function rayIntensity(z){
+  const N=W.N, dxs=W.dx, I=new Float64Array(N*N);
+  const R=RAYS;
+  for(let i=0;i<R.n;i++){
+    const x=R.px[i]+R.ux[i]*z, y=R.py[i]+R.uy[i]*z;
+    const ix=Math.round(x/dxs+N/2), iy=Math.round(y/dxs+N/2);
+    if(ix<0||iy<0||ix>=N||iy>=N) continue;
+    I[iy*N+ix]+=R.wt[i];
+  }
+  // 轻微平滑
+  const O=new Float64Array(N*N);
+  for(let y=1;y<N-1;y++)for(let x=1;x<N-1;x++){
+    const i=y*N+x;
+    O[i]=(I[i]*4+I[i-1]+I[i+1]+I[i-N]+I[i+N])/8;
+  }
+  return O;
+}
+
+/* ================= 色标 ================= */
+const CM=[[2,3,10],[26,16,62],[75,20,105],[124,29,111],[173,45,98],[213,72,74],[241,110,44],[251,161,29],[247,215,73],[252,254,190]];
+function cmap(t){
+  t=clamp(t,0,1)*(CM.length-1);
+  const i=Math.min(CM.length-2,Math.floor(t)), f=t-i, a=CM[i], b=CM[i+1];
+  return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f];
+}
+const off=document.createElement('canvas');
+function renderIntensity(I){
+  const N=W.N, dxs=W.dx;
+  const hw=Math.min(P.hw, W.L/2*0.999);
+  let i0=Math.max(0,Math.floor(N/2-hw/dxs)), i1=Math.min(N-1,Math.ceil(N/2+hw/dxs));
+  const n=i1-i0+1;
+  let mx=0;
+  for(let y=i0;y<=i1;y++)for(let x=i0;x<=i1;x++){const v=I[y*N+x];if(v>mx)mx=v;}
+  if(mx<=0)mx=1;
+  off.width=n; off.height=n;
+  const ctx=off.getContext('2d'), img=ctx.createImageData(n,n);
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+    let t=I[(y+i0)*N+(x+i0)]/mx;
+    if(P.scale==='sqrt') t=Math.sqrt(t);
+    else if(P.scale==='log') t=clamp((Math.log10(t+1e-9)+3)/3,0,1);
+    const c=cmap(t), p=(y*n+x)*4;
+    img.data[p]=c[0];img.data[p+1]=c[1];img.data[p+2]=c[2];img.data[p+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  W.imax=mx; W.crop=[i0,i1,hw];
+  return off;
+}
+function drawIntPanel(){
+  const c=$('#cint'), g=c.getContext('2d');
+  const S=c.width;
+  g.fillStyle='#000';g.fillRect(0,0,S,S);
+  g.imageSmoothingEnabled=true;
+  g.drawImage(off,0,0,S,S);
+  const hw=W.crop[2];
+  g.strokeStyle='rgba(220,230,239,.22)';g.lineWidth=1;
+  g.beginPath();g.moveTo(S/2,0);g.lineTo(S/2,S);g.moveTo(0,S/2);g.lineTo(S,S/2);g.stroke();
+  // 参考环
+  if(G.ringR>0&&G.ringR<hw){
+    g.strokeStyle='rgba(72,211,192,.55)';g.setLineDash([3,4]);
+    g.beginPath();g.arc(S/2,S/2,G.ringR/hw*S/2,0,7);g.stroke();g.setLineDash([]);
+  }
+  g.fillStyle='rgba(220,230,239,.75)';g.font='11px monospace';
+  g.fillText('±'+hw.toFixed(2)+' mm',6,S-8);
+}
+function drawProfile(I){
+  const c=$('#cprof'), g=c.getContext('2d'), Wd=c.width, H=c.height;
+  g.clearRect(0,0,Wd,H);
+  const N=W.N,[i0,i1,hw]=W.crop, n=i1-i0+1;
+  const mid=N>>1;
+  let mx=1e-30;
+  for(let x=i0;x<=i1;x++) mx=Math.max(mx,I[mid*N+x],I[x*N+mid]);
+  g.strokeStyle='#25323f';g.beginPath();
+  g.moveTo(0,H-14);g.lineTo(Wd,H-14);g.moveTo(Wd/2,0);g.lineTo(Wd/2,H-14);g.stroke();
+  const plot=(get,col)=>{
+    g.strokeStyle=col;g.lineWidth=1.2;g.beginPath();
+    for(let x=0;x<n;x++){
+      const v=get(x+i0)/mx, X=x/(n-1)*Wd, Y=(H-16)-v*(H-24);
+      x?g.lineTo(X,Y):g.moveTo(X,Y);
+    }
+    g.stroke();
+  };
+  plot(x=>I[mid*N+x],'#f2a93b');
+  plot(y=>I[y*N+mid],'#48d3c0');
+  g.fillStyle='#8698a8';g.font='10px monospace';
+  g.fillText('x 切线',6,H-3); g.fillStyle='#48d3c0'; g.fillText('y 切线',56,H-3);
+  g.fillStyle='#8698a8'; g.fillText('峰值 '+W.imax.toExponential(2),Wd-118,H-3);
+}
+
+/* ================= 3D 渲染 ================= */
+const cv=$('#c3d'), gx=cv.getContext('2d');
+const cam={yaw:-0.72,pitch:0.30,dist:1650,spin:false};
+let VW=800,VH=520,DPR=1;
+function resize(){
+  DPR=Math.min(2,window.devicePixelRatio||1);
+  const r=cv.getBoundingClientRect();
+  VW=Math.max(320,r.width); VH=Math.max(260,r.height);
+  cv.width=VW*DPR; cv.height=VH*DPR;
+  gx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize',()=>{resize();draw3D();});
+
+const view={zs:1,rs:1,zmid:0,pre:0};
+function fitView(){
+  const zEnd=P.d+P.z, pre=Math.max(30,P.d*0.14);
+  view.pre=pre; view.zmid=(zEnd-pre)/2;
+  const total=zEnd+pre;
+  view.zs=(VW*0.80)/total;
+  const tmax=Math.max(P.w*1.6,Math.abs(G.ringR)*1.35,Math.abs(G.ex)+P.w,0.6);
+  view.rs=(VH*0.30)/tmax;
+  view.mag=view.rs/view.zs;
+}
+function proj(x,y,z){
+  const vx=x*view.rs, vy=y*view.rs, vz=(z-view.zmid)*view.zs;
+  const cy=Math.cos(cam.yaw), sy=Math.sin(cam.yaw);
+  const ax=vx*cy+vz*sy, az=-vx*sy+vz*cy, ay=vy;
+  const cp=Math.cos(cam.pitch), sp=Math.sin(cam.pitch);
+  const by=ay*cp-az*sp, bz=ay*sp+az*cp, bx=ax;
+  const sc=cam.dist/(cam.dist-bx*0.55);
+  return [VW/2+sc*bz*(VW/900), VH/2-sc*by*(VW/900), bx];
+}
+function line(a,b,col,w,alpha){
+  gx.strokeStyle=col; gx.globalAlpha=alpha===undefined?1:alpha; gx.lineWidth=w||1;
+  gx.beginPath(); gx.moveTo(a[0],a[1]); gx.lineTo(b[0],b[1]); gx.stroke(); gx.globalAlpha=1;
+}
+function coneMesh(z0,radius,dir,col,tilt){
+  // 示意画法：锥面用母线 + 底圆
+  const len=radius*0.42*Math.max(view.mag,1e-6); // 轴向长度（mm），仅示意
+  const L=Math.min(len, P.d*0.10)+1e-6;
+  const M=32, pts=[];
+  const rot=(x,y,z)=>{
+    if(!tilt) return [x,y,z];
+    const cx=Math.cos(P.tx*D2R),sx=Math.sin(P.tx*D2R),cyy=Math.cos(P.ty*D2R),syy=Math.sin(P.ty*D2R);
+    const X=cyy*x+syy*z;
+    const Y=sx*syy*x+cx*y-sx*cyy*z;
+    const Z=-cx*syy*x+sx*y+cx*cyy*z;
+    return [X+G.ex,Y+G.ey,Z];
+  };
+  for(let i=0;i<=M;i++){
+    const t=2*Math.PI*i/M, p=rot(radius*Math.cos(t),radius*Math.sin(t),0);
+    pts.push(proj(p[0],p[1],z0+p[2]));
+  }
+  const ap=rot(0,0,dir*L);
+  const apex=proj(ap[0],ap[1],z0+ap[2]);
+  gx.strokeStyle=col;gx.lineWidth=1;gx.globalAlpha=.85;
+  gx.beginPath();for(let i=0;i<=M;i++){i?gx.lineTo(pts[i][0],pts[i][1]):gx.moveTo(pts[i][0],pts[i][1]);}gx.stroke();
+  gx.globalAlpha=.34;
+  gx.beginPath();
+  for(let i=0;i<M;i+=2){gx.moveTo(apex[0],apex[1]);gx.lineTo(pts[i][0],pts[i][1]);}
+  gx.stroke();
+  gx.globalAlpha=.10; gx.fillStyle=col;
+  gx.beginPath();for(let i=0;i<=M;i++){i?gx.lineTo(pts[i][0],pts[i][1]):gx.moveTo(pts[i][0],pts[i][1]);}
+  gx.closePath();gx.fill();
+  gx.globalAlpha=1;
+}
+let dispRays=[], RMAX=1, ZEND=0;
+function rayPos(r0,th,z){
+  const c=Math.cos(th), s=Math.sin(th);
+  const x=r0*c, y=r0*s;
+  if(z<=0) return [x,y];
+  const vx=-G.b1*c, vy=-G.b1*s;
+  if(z<=P.d) return [x+vx*z, y+vy*z];
+  const x2=x+vx*P.d, y2=y+vy*P.d, kk=kick2(x2,y2);
+  return [x2+(vx+kk[0])*(z-P.d), y2+(vy+kk[1])*(z-P.d)];
+}
+function buildDispRays(){
+  const Na=18, Nr=5, out=[];
+  RMAX=(P.profile==='gauss'?1.5*P.w:P.w*0.98);
+  ZEND=P.d+P.z+(P.z<20?60:P.z*0.25);
+  for(let j=0;j<Na;j++){
+    const th=2*Math.PI*j/Na;
+    for(let i=1;i<=Nr;i++){
+      const r=RMAX*i/Nr;
+      const seg=[[r*Math.cos(th),r*Math.sin(th),-view.pre],
+                 [r*Math.cos(th),r*Math.sin(th),0]];
+      const p2=rayPos(r,th,P.d); seg.push([p2[0],p2[1],P.d]);
+      const p3=rayPos(r,th,ZEND); seg.push([p3[0],p3[1],ZEND]);
+      out.push({seg,rf:i/Nr});
+    }
+  }
+  dispRays=out;
+}
+function segColor(k,rf,a){
+  const base=[[72,211,192],[242,169,59],[200,107,216]][k];
+  const f=0.55+0.45*rf;
+  return 'rgba('+Math.round(base[0]*f)+','+Math.round(base[1]*f)+','+Math.round(base[2]*f)+','+a+')';
+}
+function wavefront(zq){
+  // 同一时刻的波前：所有方位角同步，画成闭合环
+  const M=54;
+  for(let sh=1;sh<=2;sh++){
+    const r0=RMAX*(sh===1?1:0.55);
+    const stage=zq<=0?0:(zq<=P.d?1:2);
+    gx.strokeStyle=segColor(stage,sh===1?1:0.6,0.9);
+    gx.lineWidth=sh===1?1.8:1.1;
+    gx.beginPath();
+    for(let j=0;j<=M;j++){
+      const th=2*Math.PI*j/M, q=rayPos(r0,th,Math.max(zq,0));
+      const p=proj(q[0],q[1],zq);
+      j?gx.lineTo(p[0],p[1]):gx.moveTo(p[0],p[1]);
+    }
+    gx.stroke();
+  }
+}
+let tAnim=0;
+function draw3D(){
+  fitView();
+  gx.clearRect(0,0,VW,VH);
+  // 光轴
+  const A=proj(0,0,-view.pre), B=proj(0,0,P.d+P.z+60);
+  line(A,B,'rgba(134,152,168,.35)',1);
+  // 光线
+  for(const R of dispRays){
+    const p=R.seg.map(q=>proj(q[0],q[1],q[2]));
+    for(let k=0;k<3;k++) line(p[k],p[k+1],segColor(k,R.rf,0.42),1);
+  }
+  // 波前（各方位角同步，不带角向分量）
+  const z0=-view.pre, span=ZEND-z0;
+  for(let m=0;m<3;m++){
+    const u=((tAnim*0.11+m/3)%1);
+    wavefront(z0+u*span);
+  }
+  // 观察面（贴光强图）
+  drawPlane(P.d+P.z);
+  // 轴锥镜
+  const rad=Math.max(P.w*1.5,0.8);
+  coneMesh(0,rad,1,'#78d5ff',false);
+  coneMesh(P.d,rad,P.s2>0?1:-1,'#ffc4f2',true);
+  // 标注
+  const lab=(z,txt,col)=>{const p=proj(0,0,z);gx.fillStyle=col;gx.font='11px ui-sans-serif,system-ui';
+    gx.fillText(txt,p[0]-14,p[1]+VH*0.30+16);};
+  lab(0,'axicon 1','#78d5ff');
+  lab(P.d,'axicon 2','#ffc4f2');
+  lab(P.d+P.z,'观察面','#dce6ef');
+  $('#hud_mag').textContent='横向放大 ×'+view.mag.toFixed(0);
+}
+function drawPlane(zp){
+  const hw=W.crop?W.crop[2]:P.hw;
+  const o=proj(-hw,hw,zp), ex=proj(hw,hw,zp), ey=proj(-hw,-hw,zp);
+  const n=off.width||1;
+  gx.save();
+  gx.globalAlpha=0.92;
+  gx.setTransform(DPR,0,0,DPR,0,0);
+  gx.transform((ex[0]-o[0])/n,(ex[1]-o[1])/n,(ey[0]-o[0])/n,(ey[1]-o[1])/n,o[0],o[1]);
+  try{gx.drawImage(off,0,0);}catch(e){}
+  gx.restore();
+  gx.strokeStyle='rgba(220,230,239,.5)';gx.lineWidth=1;
+  const c4=[proj(-hw,hw,zp),proj(hw,hw,zp),proj(hw,-hw,zp),proj(-hw,-hw,zp)];
+  gx.beginPath();c4.forEach((p,i)=>i?gx.lineTo(p[0],p[1]):gx.moveTo(p[0],p[1]));gx.closePath();gx.stroke();
+}
+
+/* 交互 */
+let drag=null;
+cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};cv.setPointerCapture(e.pointerId);});
+cv.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  cam.yaw+=(e.clientX-drag.x)*0.007;
+  cam.pitch=clamp(cam.pitch+(e.clientY-drag.y)*0.006,-1.2,1.2);
+  drag={x:e.clientX,y:e.clientY};draw3D();
+});
+cv.addEventListener('pointerup',()=>drag=null);
+cv.addEventListener('wheel',e=>{e.preventDefault();cam.dist=clamp(cam.dist*(1+e.deltaY*0.0012),400,6000);draw3D();},{passive:false});
+
+/* ================= 控件 ================= */
+const SPEC=[
+ ['g_src','光源',[
+   ['lambda_nm','波长',400,1600,1,'nm',0],
+   ['w','束半径 (1/e²)',0.2,3,0.05,'mm',2],
+   ['ap','限制光阑半径',0.5,10,0.1,'mm',1]]],
+ ['g_ax1','axicon 1（基准）',[
+   ['n','折射率 n',1.3,2.0,0.01,'',2],
+   ['a1','底角 α₁',0.05,3,0.01,'°',2]]],
+ ['g_ax2','axicon 2',[
+   ['a2','底角 α₂',0.05,3,0.01,'°',2],
+   ['d','间距 d',10,1200,1,'mm',0]]],
+ ['g_mis','axicon 2 的失调',[
+   ['tx','俯仰 θx',-5,5,0.02,'°',2],
+   ['ty','偏摆 θy',-5,5,0.02,'°',2],
+   ['dx','横移 Δx',-2,2,0.005,'mm',3],
+   ['dy','横移 Δy',-2,2,0.005,'mm',3],
+   ['pivot','转轴臂长',-60,60,1,'mm',0]]],
+ ['g_obs','观察面',[
+   ['z','距 axicon 2',0,800,1,'mm',0]]]
+];
+function slider(host,k,label,mn,mx,st,unit,dg){
+  const d=document.createElement('div');d.className='ctl';
+  d.innerHTML='<div class="row"><label for="s_'+k+'">'+label+'</label><span class="val mono" id="v_'+k+'"></span></div>'+
+    '<input type="range" id="s_'+k+'" min="'+mn+'" max="'+mx+'" step="'+st+'" value="'+P[k]+'">';
+  host.appendChild(d);
+  const inp=d.querySelector('input'), out=d.querySelector('.val');
+  const show=()=>out.textContent=Number(P[k]).toFixed(dg)+(unit?' '+unit:'');
+  show();
+  inp.addEventListener('input',()=>{P[k]=parseFloat(inp.value);show();
+    if(k==='z'||k==='hw'){needZ=true;}else{needField=true;} schedule();});
+  return inp;
+}
+const inputs={};
+SPEC.forEach(([id,title,items])=>{
+  const host=$('#'+id);
+  host.innerHTML='<h3>'+title+'</h3>';
+  items.forEach(it=>inputs[it[0]]=slider(host,...it));
+});
+// axicon2 朝向
+(function(){
+  const host=$('#g_ax2'), d=document.createElement('div');d.className='ctl';
+  d.innerHTML='<div class="row"><label>类型</label></div><div class="seg" id="seg_s2">'+
+    '<button data-v="1" aria-pressed="true">正轴锥镜（凸）</button><button data-v="-1">负轴锥镜（凹）</button></div>';
+  host.appendChild(d);
+  const p=document.createElement('div');p.className='ctl';
+  p.innerHTML='<div class="row"><label>入射光形</label></div><div class="seg" id="seg_prof">'+
+    '<button data-v="gauss" aria-pressed="true">高斯</button><button data-v="flat">平顶</button></div>';
+  $('#g_src').appendChild(p);
+})();
+$('#c_hw').innerHTML='';
+inputs.hw=slider($('#c_hw'),'hw','显示视场半宽',0.2,10,0.05,'mm',2);
+
+function segment(id,key,cast,light){
+  const el=$('#'+id);
+  el.addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b)return;
+    [...el.children].forEach(c=>c.setAttribute('aria-pressed',c===b));
+    P[key]=cast(b.dataset.v);
+    if(light) needZ=true; else needField=true;
+    schedule();
+  });
+}
+segment('seg_mode','mode',String);
+segment('seg_N','N',Number);
+segment('seg_scale','scale',String,true);
+segment('seg_s2','s2',Number);
+segment('seg_prof','profile',String);
+
+/* 预设 */
+const PRESETS=[
+ ['准直环（标准用法）','d 大于贝塞尔区，得到干净环',{a1:0.7,a2:0.7,s2:1,d:400,z:150,tx:0,ty:0,dx:0,dy:0,pivot:0,w:1,hw:3.5,profile:'gauss',N:256}],
+ ['贝塞尔焦线','两镜靠近，锥角相加，长焦线',{a1:1,a2:1,s2:1,d:60,z:60,tx:0,ty:0,dx:0,dy:0,pivot:0,w:1,hw:1.2,N:512}],
+ ['横移 0.3 mm','看环的亮度不均与月牙',{a1:0.7,a2:0.7,s2:1,d:400,z:150,tx:0,ty:0,dx:0.3,dy:0,pivot:0,w:1,hw:3.5}],
+ ['纯俯仰 3°','绕锥尖转，只出现椭圆／像散',{a1:0.7,a2:0.7,s2:1,d:400,z:150,tx:3,ty:0,dx:0,dy:0,pivot:0,w:1,hw:3.5}],
+ ['俯仰 1° + 30 mm 转轴臂','真实镜架：倾斜其实是在横移',{a1:0.7,a2:0.7,s2:1,d:400,z:150,tx:1,ty:0,dx:0,dy:0,pivot:30,w:1,hw:3.5}],
+ ['锥角失配 α₂=0.5°','环半径随 z 变化，不再准直',{a1:0.7,a2:0.5,s2:1,d:400,z:300,tx:0,ty:0,dx:0,dy:0,pivot:0,w:1,hw:4.5}]
+];
+(function(){
+  const host=$('#presets');
+  PRESETS.forEach(([t,s,vals])=>{
+    const b=document.createElement('button');b.className='btn';
+    b.innerHTML=t+'<small>'+s+'</small>';
+    b.onclick=()=>{Object.assign(P,vals);syncUI();needField=true;schedule();};
+    host.appendChild(b);
+  });
+})();
+function syncUI(){
+  for(const k in inputs){const el=inputs[k];if(!el)continue;el.value=P[k];
+    el.dispatchEvent(new Event('input'));}
+  // segment 状态
+  const sync=(id,key)=>{const el=$('#'+id);[...el.children].forEach(c=>
+    c.setAttribute('aria-pressed', String(c.dataset.v)===String(P[key])));};
+  sync('seg_s2','s2');sync('seg_prof','profile');sync('seg_mode','mode');
+  sync('seg_N','N');sync('seg_scale','scale');
+}
+
+/* ================= 读数 ================= */
+function readout(){
+  const b1=G.b1*1000, b2=G.b2*1000;
+  const nz=Math.hypot(G.ex,G.ey);
+  const ellip=(1/(G.Nz*G.Nz)-1)*100;
+  const spot=Math.max(P.w,1e-9);
+  const sev=nz/spot;
+  const badge=sev<0.05?'<span class="badge ok">良好</span>':(sev<0.2?'<span class="badge warn">可见失调</span>':'<span class="badge bad">严重</span>');
+  const alias=W.alias?'<span class="badge bad">采样不足</span>':'<span class="badge ok">充分</span>';
+  const rows=[
+   ['β₁ = (n−1)tanα₁', b1.toFixed(2)+' mrad ('+(b1/17.453).toFixed(3)+'°)'],
+   ['β₂', b2.toFixed(2)+' mrad'],
+   ['axicon 1 贝塞尔区长度', G.zmaxBessel.toFixed(0)+' mm'],
+   ['径向平移量 β₁·d', G.ringR.toFixed(3)+' mm'],
+   ['环峰值半径 ≈ β₁d−w/2', (G.ringR-P.w/2).toFixed(3)+' mm'],
+   ['出射锥角 |β₁−s₂β₂|', (Math.abs(G.b1-P.s2*G.b2)*1000).toFixed(2)+' mrad'],
+   ['有效横移（含转轴臂）', nz.toFixed(3)+' mm '+badge],
+   ['横移／束半径', sev.toFixed(3)],
+   ['倾斜引起锥角椭圆度', ellip.toFixed(3)+' %'],
+   ['计算窗口', '±'+(W.L/2).toFixed(2)+' mm，Δ='+(W.dx*1000).toFixed(1)+' µm '+alias]
+  ];
+  $('#readout').innerHTML=rows.map(r=>'<tr><td>'+r[0]+'</td><td class="mono">'+r[1]+'</td></tr>').join('');
+  $('#lab_z').textContent='z = '+P.z.toFixed(0)+' mm';
+  const inZone=P.d<G.zmaxBessel;
+  $('#hud_zone').innerHTML= inZone
+    ? 'd &lt; 贝塞尔区长度 → axicon 2 位于<b>锥形波交叠区内</b>'
+    : 'd &gt; 贝塞尔区长度 → 光线已过轴，axicon 2 在<b>环形区</b>';
+}
+
+/* ================= 主循环 ================= */
+let needField=true, needZ=true, scanning=false, pending=false;
+function schedule(){pending=true;}
+function compute(){
+  const t0=performance.now();
+  if(needField){buildField();traceBundle();buildDispRays();needField=false;needZ=true;}
+  if(needZ){
+    const I=(P.mode==='wave')?waveIntensity(P.z):rayIntensity(P.z);
+    renderIntensity(I);drawIntPanel();drawProfile(I);
+    needZ=false;
+  }
+  readout();
+  $('#stat').textContent=(performance.now()-t0).toFixed(0)+' ms · '+P.N+'²';
+}
+function frame(t){
+  tAnim=t/1000;
+  if(pending){pending=false;compute();}
+  if(scanning){P.z=P.z>=790?0:P.z+6;inputs.z.value=P.z;
+    $('#v_z').textContent=P.z.toFixed(0)+' mm';needZ=true;compute();}
+  if(cam.spin){cam.yaw+=0.004;}
+  draw3D();
+  requestAnimationFrame(frame);
+}
+$('#btn_spin').onclick=e=>{cam.spin=!cam.spin;e.target.classList.toggle('active',cam.spin);};
+$('#btn_zscan').onclick=e=>{scanning=!scanning;e.target.classList.toggle('active',scanning);};
+$('#btn_reset').onclick=()=>{cam.yaw=-0.72;cam.pitch=0.30;cam.dist=1650;draw3D();};
+
+/* ================= x–z 剖面 ================= */
+$('#btn_xz').onclick=function(){
+  const btn=this; btn.disabled=true;
+  const N=W.N, steps=150, zEnd=P.d+P.z+1e-9, dz=zEnd/steps;
+  const re=W.re1.slice(), im=W.im1.slice();
+  const dSt=Math.round(P.d/dz);
+  const cols=[]; let s=0; let applied=false;
+  const cx=$('#cxz'), g=cx.getContext('2d');
+  const step=()=>{
+    const t0=performance.now();
+    while(s<steps&&performance.now()-t0<45){
+      propagate(re,im,N,W.dx,G.lam,dz);
+      s++;
+      if(!applied&&s>=dSt){edgeMask(re,im,N);applyAx2(re,im,N,W.dx);applied=true;}
+      const mid=N>>1, col=new Float64Array(N);
+      for(let x=0;x<N;x++){const i=mid*N+x;col[x]=re[i]*re[i]+im[i]*im[i];}
+      cols.push(col);
+    }
+    btn.textContent='计算中 '+Math.round(s/steps*100)+'%';
+    if(s<steps){requestAnimationFrame(step);return;}
+    // 绘制
+    const hw=W.crop[2], i0=Math.max(0,Math.floor(N/2-hw/W.dx)), i1=Math.min(N-1,Math.ceil(N/2+hw/W.dx));
+    const h=i1-i0+1, wI=cols.length;
+    const tmp=document.createElement('canvas');tmp.width=wI;tmp.height=h;
+    const tc=tmp.getContext('2d'), img=tc.createImageData(wI,h);
+    let mx=0;cols.forEach(c=>{for(let y=i0;y<=i1;y++)if(c[y]>mx)mx=c[y];});
+    for(let X=0;X<wI;X++)for(let y=0;y<h;y++){
+      let t=cols[X][y+i0]/(mx||1); t=Math.sqrt(t);
+      const c=cmap(t), p=(y*wI+X)*4;
+      img.data[p]=c[0];img.data[p+1]=c[1];img.data[p+2]=c[2];img.data[p+3]=255;
+    }
+    tc.putImageData(img,0,0);
+    g.clearRect(0,0,cx.width,cx.height);
+    g.imageSmoothingEnabled=true;g.drawImage(tmp,0,0,cx.width,cx.height);
+    const xd=P.d/zEnd*cx.width;
+    g.strokeStyle='rgba(255,196,242,.9)';g.setLineDash([4,3]);
+    g.beginPath();g.moveTo(xd,0);g.lineTo(xd,cx.height);g.stroke();g.setLineDash([]);
+    g.fillStyle='rgba(220,230,239,.85)';g.font='10px monospace';
+    g.fillText('axicon 2',xd+4,12); g.fillText('z →',cx.width-26,cx.height-5);
+    g.fillText('x ±'+hw.toFixed(1)+'mm',4,cx.height-5);
+    btn.textContent='计算 x–z 剖面'; btn.disabled=false;
+  };
+  step();
+};
+
+/* 启动 */
+resize(); updateGeom(); compute(); requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

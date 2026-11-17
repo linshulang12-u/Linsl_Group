@@ -1,0 +1,18 @@
+# ═════════════════════════════════════════════════════════════
+#  LAB FACTS — edit once here, used on every page.
+#  Leave a value empty ('') to hide it on the site.
+# ═════════════════════════════════════════════════════════════
+name: Lin Lab                       # short name (navbar, footer)
+full_name: Spatiotemporal Light-Field Control Group   # TODO: confirm official English name
+name_zh: 时空光场调控课题组
+department: College of Electronic Science and Engineering
+institution: Jilin University
+institution_short: Jilin University
+pi: Shulang Lin
+email: ''                           # TODO: public contact e-mail
+phone: ''
+address:
+  - ''                              # TODO: room / building
+  - ''                              # street, city, postcode
+  - ''                              # country
+founded: 2026

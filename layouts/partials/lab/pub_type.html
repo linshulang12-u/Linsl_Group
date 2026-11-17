@@ -1,0 +1,3 @@
+{{- $t := "" -}}{{- with .Params.publication_types }}{{ $t = index . 0 }}{{ end -}}
+{{- $map := dict "article-journal" "Journal article" "paper-conference" "Conference paper" "article" "Preprint" "chapter" "Book chapter" "book" "Book" "thesis" "Thesis" "patent" "Patent" "report" "Report" -}}
+{{- return (index $map $t | default "Publication") -}}

@@ -1,0 +1,53 @@
+{{- define "main" -}}
+{{ partial "lab/pagehead.html" . }}
+
+{{ with .Content }}
+<section class="lab-section">
+  <div class="lab-wrap">
+    <p class="lab-label">Current focus</p>
+    <div class="lab-lead">{{ . }}</div>
+  </div>
+</section>
+{{ end }}
+
+<section class="lab-section" id="directions">
+  <div class="lab-wrap">
+    <p class="lab-label">Directions</p>
+    <h2 class="lab-h2" style="margin-bottom:34px">{{ .Params.directions_title | default "Connected research directions" }}</h2>
+    {{ range $i, $d := .RegularPages.ByWeight }}
+    {{ $img := ($d.Resources.ByType "image").GetMatch "*featured*" }}
+    <article class="lab-panel" id="{{ $d.File.ContentBaseName }}">
+      <div class="lab-panel-n">{{ printf "%02d" (add $i 1) }}</div>
+      <div class="lab-panel-body">
+        <div>
+          <h3 class="lab-h2" style="font-size:1.4rem"><a href="{{ $d.RelPermalink }}" style="color:inherit">{{ $d.Title }}</a>{{ with $d.Params.status }}<span class="lab-tag">{{ . }}</span>{{ end }}</h3>
+          {{ with $d.Params.question }}<p class="lab-q">{{ . }}</p>{{ end }}
+          {{ with $d.Params.focus }}<ul>{{ range . }}<li>{{ . | markdownify }}</li>{{ end }}</ul>{{ end }}
+          <div style="display:flex;flex-wrap:wrap;gap:6px 22px">
+            <a class="lab-more" href="{{ $d.RelPermalink }}">Explore this direction →</a>
+            {{ range $d.Params.demos }}<a class="lab-more" href="{{ .url | relURL }}" target="_blank" rel="noopener">Interactive demo: {{ .name }} ↗</a>{{ end }}
+          </div>
+        </div>
+        {{ with $img }}{{ $s := .Resize "720x" }}<a href="{{ $d.RelPermalink }}"><img src="{{ $s.RelPermalink }}" alt="{{ $d.Params.image_caption }}" loading="lazy"></a>{{ end }}
+      </div>
+    </article>
+    {{ end }}
+  </div>
+</section>
+
+{{ with .Params.principles }}
+<section class="lab-section lab-section--wash" id="principles">
+  <div class="lab-wrap">
+    <p class="lab-label">Shared principles</p>
+    <h2 class="lab-h2" style="margin-bottom:28px">{{ $.Params.principles_title | default "How we approach a problem" }}</h2>
+    <div class="lab-grid lab-grid--3">
+      {{ range $i, $p := . }}
+      <div class="lab-card"><div class="lab-card-n">{{ printf "%02d" (add $i 1) }}</div><h3 class="lab-h3">{{ $p.title }}</h3><p>{{ $p.text }}</p></div>
+      {{ end }}
+    </div>
+  </div>
+</section>
+{{ end }}
+
+{{ partial "lab/next.html" . }}
+{{- end -}}

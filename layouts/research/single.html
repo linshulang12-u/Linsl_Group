@@ -1,0 +1,51 @@
+{{- define "main" -}}
+{{ $img := (.Resources.ByType "image").GetMatch "*featured*" }}
+<header class="lab-pagehead">
+  <div class="lab-wrap">
+    <p class="lab-eyebrow"><a href="{{ .Parent.RelPermalink }}">Research</a> · Direction{{ with .Params.status }} · {{ . }}{{ end }}</p>
+    <h1>{{ .Title }}</h1>
+    {{ with .Params.question }}<p class="lab-lead"><em>{{ . }}</em></p>{{ end }}
+  </div>
+</header>
+
+<section class="lab-section">
+  <div class="lab-wrap">
+    <div class="lab-panel-body">
+      <div class="lab-prose" style="counter-reset:none">
+        {{ .Content }}
+        {{ with .Params.focus }}
+        <h3>Research focus</h3>
+        <ul>{{ range . }}<li>{{ . | markdownify }}</li>{{ end }}</ul>
+        {{ end }}
+        {{ with .Params.demos }}<div class="lab-btns">{{ range . }}<a class="lab-btn lab-btn--ghost" href="{{ .url | relURL }}" target="_blank" rel="noopener">Interactive demo: {{ .name }} ↗</a>{{ end }}</div>{{ end }}
+      </div>
+      {{ with $img }}{{ $s := .Resize "900x" }}
+      <figure style="margin:0"><img src="{{ $s.RelPermalink }}" alt="">{{ with $.Params.image_caption }}<figcaption class="lab-muted" style="font-size:.85rem;margin-top:8px">{{ . | markdownify }}</figcaption>{{ end }}</figure>
+      {{ end }}
+    </div>
+  </div>
+</section>
+
+{{ $slug := .File.ContentBaseName }}
+{{ $pubs := where (where site.RegularPages "Section" "publication") "Params.research_areas" "intersect" (slice $slug) }}
+{{ if $pubs }}
+<section class="lab-section lab-section--wash">
+  <div class="lab-wrap">
+    <p class="lab-label">Related publications</p>
+    <h2 class="lab-h2" style="margin-bottom:10px">Papers in this direction</h2>
+    {{ range $pubs.ByDate.Reverse }}{{ partial "lab/pub_item.html" (dict "page" . "n" "") }}{{ end }}
+  </div>
+</section>
+{{ end }}
+
+<section class="lab-section">
+  <div class="lab-wrap">
+    <p class="lab-label">Other directions</p>
+    <div class="lab-grid lab-grid--3">
+      {{ range where .Parent.RegularPages.ByWeight "File.ContentBaseName" "!=" $slug }}
+      <a class="lab-card" href="{{ .RelPermalink }}"><h3 class="lab-h3">{{ .Title }}</h3><p>{{ .Params.summary }}</p><span class="lab-card-go">Explore →</span></a>
+      {{ end }}
+    </div>
+  </div>
+</section>
+{{- end -}}

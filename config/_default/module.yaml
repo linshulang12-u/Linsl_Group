@@ -1,0 +1,5 @@
+# Theme modules (Hugo Blox Builder). A copy is vendored in `_vendor/`,
+# so the site builds without downloading anything.
+imports:
+  - path: github.com/HugoBlox/hugo-blox-builder/modules/blox-plugin-netlify
+  - path: github.com/HugoBlox/hugo-blox-builder/modules/blox-bootstrap/v5

@@ -1,0 +1,18 @@
+# Colour theme for the lab site. Change `primary` to re-colour links/buttons.
+name = "Lab"
+
+[light]
+  primary = "#0b4f9e"
+
+  menu_primary = "#ffffff"
+  menu_text = "#26333f"
+  menu_text_active = "#0b4f9e"
+  menu_title = "#0d1b2a"
+
+  home_section_odd = "rgb(255, 255, 255)"
+  home_section_even = "rgb(244, 247, 250)"
+
+[dark]
+  primary = "#9cc4f5"
+  link = "#9cc4f5"
+  link_hover = "#9cc4f5"

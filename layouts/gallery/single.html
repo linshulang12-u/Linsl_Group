@@ -1,0 +1,84 @@
+{{- define "main" -}}
+{{ partial "lab/pagehead.html" . }}
+{{ $page := . }}
+{{ $images := .Resources.ByType "image" }}
+{{ $years := slice }}
+{{ range $images }}{{ $years = $years | append (path.Dir .Name) }}{{ end }}
+{{ $years = sort ($years | uniq) "value" "desc" }}
+
+{{ if not $images }}
+<section class="lab-section"><div class="lab-wrap"><p class="lab-lead">Photos will appear here soon.</p></div></section>
+{{ else }}
+<section class="lab-section" style="padding:22px 0">
+  <div class="lab-wrap"><ul class="lab-chips" style="margin:0">{{ range $years }}<li><a href="#y{{ . }}">{{ . }}</a></li>{{ end }}</ul></div>
+</section>
+{{ end }}
+
+{{ $idx := 0 }}
+{{ range $y := $years }}
+{{ $photos := $page.Resources.Match (printf "%s/*" $y) }}
+{{ $meta := index ($page.Params.years | default dict) $y }}
+<section class="lab-section" id="y{{ $y }}">
+  <div class="lab-wrap">
+    <div class="lab-year" style="margin-top:0"><h2>{{ $y }}</h2><span>{{ len $photos }} {{ if eq (len $photos) 1 }}photo{{ else }}photos{{ end }}</span></div>
+    {{ with $meta }}{{ with .theme }}<h3 class="lab-h3" style="margin-top:8px">{{ . }}</h3>{{ end }}{{ with .text }}<p class="lab-muted" style="max-width:44rem">{{ . }}</p>{{ end }}{{ end }}
+    <div class="lab-gallery" style="margin-top:22px">
+      {{ range $photos }}
+      {{ $cap := index ($page.Params.photos | default dict) .Name | default dict }}
+      {{ $base := path.Base .Name }}
+      {{ $title := $cap.title | default (replaceRE `\.[A-Za-z]+$` "" $base | replaceRE `^[0-9_\-]+` "" | humanize) }}
+      {{ $thumb := .Fill "720x480 Center" }}
+      {{ $full := .Fit "2000x2000" }}
+      <figure class="lab-photo">
+        <button type="button" data-lab-photo="{{ $idx }}" data-full="{{ $full.RelPermalink }}" data-original="{{ .RelPermalink }}" data-caption="{{ $title }}{{ with $cap.text }} — {{ . }}{{ end }}" aria-label="Open photo: {{ $title }}">
+          <img src="{{ $thumb.RelPermalink }}" alt="{{ $title }}" loading="lazy">
+        </button>
+        <figcaption>
+          <span class="lab-photo-tag">{{ with $cap.tag }}{{ . }} · {{ end }}{{ $y }}</span>
+          <strong>{{ $title }}</strong>
+          {{ with $cap.text }}{{ . }}{{ end }}
+        </figcaption>
+      </figure>
+      {{ $idx = add $idx 1 }}
+      {{ end }}
+    </div>
+  </div>
+</section>
+{{ end }}
+
+<div class="lab-lightbox" id="lab-lightbox" role="dialog" aria-modal="true" aria-label="Photo viewer">
+  <button class="lab-lb-close" type="button" aria-label="Close">✕</button>
+  <button class="lab-lb-prev" type="button" aria-label="Previous photo">‹</button>
+  <button class="lab-lb-next" type="button" aria-label="Next photo">›</button>
+  <img alt="">
+  <p><span></span> · <a href="#" target="_blank" rel="noopener">Open original image</a></p>
+</div>
+<script>
+(function () {
+  var items = Array.prototype.slice.call(document.querySelectorAll('[data-lab-photo]'));
+  var box = document.getElementById('lab-lightbox');
+  if (!items.length || !box) return;
+  var img = box.querySelector('img'), cap = box.querySelector('p span'), orig = box.querySelector('p a'), cur = 0;
+  function show(i) {
+    cur = (i + items.length) % items.length;
+    var b = items[cur];
+    img.src = b.dataset.full; img.alt = b.dataset.caption; cap.textContent = b.dataset.caption; orig.href = b.dataset.original;
+    box.classList.add('is-open');
+  }
+  function close() { box.classList.remove('is-open'); img.src = ''; }
+  items.forEach(function (b, i) { b.addEventListener('click', function () { show(i); }); });
+  box.querySelector('.lab-lb-close').addEventListener('click', close);
+  box.querySelector('.lab-lb-prev').addEventListener('click', function () { show(cur - 1); });
+  box.querySelector('.lab-lb-next').addEventListener('click', function () { show(cur + 1); });
+  box.addEventListener('click', function (e) { if (e.target === box) close(); });
+  document.addEventListener('keydown', function (e) {
+    if (!box.classList.contains('is-open')) return;
+    if (e.key === 'Escape') close();
+    if (e.key === 'ArrowLeft') show(cur - 1);
+    if (e.key === 'ArrowRight') show(cur + 1);
+  });
+})();
+</script>
+
+{{ partial "lab/next.html" . }}
+{{- end -}}

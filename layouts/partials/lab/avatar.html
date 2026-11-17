@@ -1,0 +1,11 @@
+{{/* Portrait, or initials when there is no avatar.* file in the person's folder. */}}
+{{- $avatar := (.Resources.ByType "image").GetMatch "*avatar*" -}}
+{{- if $avatar -}}
+  {{- $a := $avatar.Fill "336x336 Center" -}}
+  <img class="lab-avatar" src="{{ $a.RelPermalink }}" alt="{{ .Title }}" loading="lazy">
+{{- else -}}
+  {{- $ini := "" -}}
+  {{- with .Params.first_name }}{{ $ini = substr . 0 1 }}{{ end -}}
+  {{- with .Params.last_name }}{{ $ini = print $ini (substr . 0 1) }}{{ end -}}
+  <div class="lab-avatar" aria-hidden="true">{{ $ini | default "·" | upper }}</div>
+{{- end -}}

@@ -1,0 +1,48 @@
+{{- define "main" -}}
+{{/* Culture page: motto band, statement (zh + en), values grid. Content in content/culture/index.md */}}
+<header class="lab-pagehead">
+  <div class="lab-wrap">
+    {{ with .Params.eyebrow }}<p class="lab-eyebrow">{{ . }}</p>{{ end }}
+    <h1>{{ .Params.headline | default .Title }}</h1>
+  </div>
+</header>
+
+<section class="lab-motto">
+  <div class="lab-wrap">
+    <p class="lab-motto-en">{{ range $i, $m := .Params.motto }}<span>{{ $m.en }}</span>{{ end }}</p>
+    <p class="lab-motto-zh" lang="zh-CN">{{ range $i, $m := .Params.motto }}{{ if $i }}<i aria-hidden="true">·</i>{{ end }}<span>{{ $m.zh }}</span>{{ end }}</p>
+  </div>
+</section>
+
+{{ with .Params.statement }}
+<section class="lab-section">
+  <div class="lab-wrap">
+    <div class="lab-bilingual">
+      <div lang="zh-CN" class="lab-zh-block">{{ range .zh }}<p>{{ . }}</p>{{ end }}</div>
+      <div class="lab-en-block">{{ range .en }}<p>{{ . }}</p>{{ end }}</div>
+    </div>
+    {{ with $.Params.closing }}<p class="lab-closing"><span lang="zh-CN">{{ .zh }}</span><span>{{ .en }}</span></p>{{ end }}
+  </div>
+</section>
+{{ end }}
+
+{{ with .Params.values }}
+<section class="lab-section lab-section--wash">
+  <div class="lab-wrap">
+    <p class="lab-label">Our Values · 核心价值观</p>
+    <div class="lab-grid lab-grid--4 lab-values">
+      {{ range . }}
+      <div class="lab-card">
+        <h3 class="lab-h3">{{ .en }}</h3>
+        <p class="lab-value-zh" lang="zh-CN">{{ .zh }}</p>
+        <p lang="zh-CN">{{ .text_zh }}</p>
+        <p class="lab-value-en">{{ .text_en }}</p>
+      </div>
+      {{ end }}
+    </div>
+  </div>
+</section>
+{{ end }}
+
+{{ partial "lab/next.html" . }}
+{{- end -}}

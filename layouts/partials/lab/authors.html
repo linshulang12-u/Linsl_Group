@@ -1,0 +1,13 @@
+{{/* Author list with # (co-first) and * (corresponding) markers; lab members are bold + linked. */}}
+{{- $p := . -}}
+{{- $cof := $p.Params.co_first | default slice -}}
+{{- $cor := $p.Params.corresponding | default slice -}}
+{{- range $i, $a := $p.Params.authors -}}
+  {{- if $i }}, {{ end -}}
+  {{- $profile := site.GetPage (printf "/authors/%s" (urlize $a)) -}}
+  {{- if $profile }}{{ if not $profile.File }}{{ $profile = false }}{{ end }}{{ end -}}
+  {{- $name := $a -}}
+  {{- with $profile }}{{ $name = .Title }}{{ end -}}
+  {{- if $profile -}}<strong><a href="{{ $profile.RelPermalink }}">{{ $name }}</a></strong>{{- else -}}{{ $name }}{{- end -}}
+  {{- if or (in $cof $a) (in $cor $a) -}}<sup>{{ if in $cof $a }}#{{ end }}{{ if in $cor $a }}*{{ end }}</sup>{{- end -}}
+{{- end -}}

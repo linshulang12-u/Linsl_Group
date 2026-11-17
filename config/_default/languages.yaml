@@ -1,0 +1,5 @@
+# Languages. The site is English-only for now.
+# A Chinese version can be added later by enabling a `zh` block here
+# and mirroring the content into content/zh/.
+en:
+  languageCode: en-us

@@ -1,0 +1,9 @@
+# Alumni table on the People page. The section is hidden while this list is empty.
+# Example:
+# alumni:
+#   - name: San Zhang
+#     name_zh: 张三
+#     role: Master's student
+#     years: 2026–2029
+#     next: PhD student, XX University
+alumni: []

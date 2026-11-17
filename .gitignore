@@ -1,0 +1,10 @@
+# Hugo build output and caches
+/public/
+/resources/
+.hugo_build.lock
+assets/jsconfig.json
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

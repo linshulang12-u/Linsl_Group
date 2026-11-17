@@ -1,0 +1,17 @@
+{{/* "Continue" link cards, from `next:` in the page front matter. */}}
+{{ with .Params.next }}
+<section class="lab-section lab-section--wash">
+  <div class="lab-wrap">
+    <p class="lab-label">Continue</p>
+    <div class="lab-grid lab-grid--3">
+      {{ range . }}
+      <a class="lab-card" href="{{ .url | relURL }}">
+        <h3 class="lab-h3">{{ .title }}</h3>
+        <p>{{ .text }}</p>
+        <span class="lab-card-go">Open →</span>
+      </a>
+      {{ end }}
+    </div>
+  </div>
+</section>
+{{ end }}

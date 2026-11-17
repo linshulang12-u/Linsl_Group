@@ -1,0 +1,14 @@
+{{/* Page head: eyebrow, title, lead and optional anchor chips. */}}
+<header class="lab-pagehead">
+  <div class="lab-wrap">
+    {{ with .Params.eyebrow }}<p class="lab-eyebrow">{{ . }}</p>{{ end }}
+    <h1>{{ .Params.headline | default .Title | markdownify }}</h1>
+    {{ with .Params.lead }}<p class="lab-lead">{{ . | markdownify }}</p>{{ end }}
+    {{ with .Params.lead_zh }}<p class="lab-zh-lead" lang="zh-CN">{{ . }}</p>{{ end }}
+    {{ with .Params.chips }}
+    <ul class="lab-chips">
+      {{ range . }}<li><a href="{{ .url }}">{{ .name }}</a></li>{{ end }}
+    </ul>
+    {{ end }}
+  </div>
+</header>

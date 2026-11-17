@@ -1,0 +1,20 @@
+{{/* One publication. Call with (dict "page" $p "n" 12) or (dict "page" $p "thumb" true). */}}
+{{- $p := .page -}}
+{{- $img := ($p.Resources.ByType "image").GetMatch "*featured*" -}}
+{{- $thumb := and .thumb $img -}}
+<article class="lab-pub{{ if .thumb }} lab-pub--thumb{{ end }}">
+  {{ if .thumb }}
+    {{ if $img }}{{ $s := $img.Resize "480x" }}<a class="lab-pub-img" href="{{ $p.RelPermalink }}"><img src="{{ $s.RelPermalink }}" alt="" loading="lazy"></a>{{ else }}<a class="lab-pub-img lab-pub-img--none" href="{{ $p.RelPermalink }}" aria-hidden="true" tabindex="-1"><span>{{ $p.Params.journal }}</span></a>{{ end }}
+  {{ else }}
+    <div class="lab-pub-n">{{ with .n }}{{ . }}{{ end }}</div>
+  {{ end }}
+  <div>
+    <div class="lab-pub-type">{{ partial "lab/pub_type.html" $p }} · {{ $p.Params.year | default ($p.Date.Format "2006") }}</div>
+    <h3><a href="{{ $p.RelPermalink }}">{{ $p.Title | markdownify }}</a></h3>
+    <p class="lab-pub-authors">{{ partial "lab/authors.html" $p }}</p>
+    <p class="lab-pub-venue">{{ $p.Params.publication | markdownify }}</p>
+    {{ with $p.Params.note }}<p class="lab-pub-note">{{ . | markdownify }}</p>{{ end }}
+    {{ if .thumb }}{{ with $p.Params.summary }}<p class="lab-pub-summary">{{ . | markdownify }}</p>{{ end }}{{ end }}
+    {{ partial "lab/pub_links.html" $p }}
+  </div>
+</article>

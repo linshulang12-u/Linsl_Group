@@ -1,0 +1,65 @@
+{{- define "main" -}}
+{{ partial "lab/pagehead.html" . }}
+{{ $all := where site.Pages "Section" "authors" }}
+
+<section class="lab-section" id="team">
+  <div class="lab-wrap">
+    <p class="lab-label">Current team</p>
+    <h2 class="lab-h2" style="margin-bottom:36px">{{ .Params.team_title | default "The people behind the work" }}</h2>
+
+    {{ range .Params.groups }}
+      {{ $members := where $all "Params.user_groups" "intersect" (slice .key) }}
+      {{ $members = sort (sort $members "Params.last_name") "Params.weight" }}
+      {{ if $members }}
+      <div class="lab-group" id="{{ .key | anchorize }}">
+        <div class="lab-group-head"><h3>{{ .title | default .key }}</h3><span>{{ len $members }}</span></div>
+        {{ if eq .style "lead" }}
+          {{ range $members }}
+          <div class="lab-lead-person">
+            {{ partial "lab/avatar.html" . }}
+            <div>
+              <h3><a href="{{ .RelPermalink }}">{{ .Title }}</a>{{ with .Params.name_zh }} <span class="lab-zh">{{ . }}</span>{{ end }}</h3>
+              <p class="lab-role">{{ .Params.role }}{{ range .Params.organizations }} · {{ .name }}{{ end }}</p>
+              <p>{{ .Params.bio | markdownify }}</p>
+              {{ partial "lab/plinks.html" . }}
+            </div>
+          </div>
+          {{ end }}
+        {{ else }}
+          <div class="lab-people">
+          {{ range $members }}
+            <div class="lab-person">
+              {{ partial "lab/avatar.html" . }}
+              <h3>{{ if .Params.profile_page | default true }}<a href="{{ .RelPermalink }}">{{ .Title }}</a>{{ else }}{{ .Title }}{{ end }}{{ with .Params.name_zh }} <span class="lab-zh">{{ . }}</span>{{ end }}</h3>
+              <p class="lab-role">{{ .Params.role | markdownify }}</p>
+              {{ with .Params.interests }}<p class="lab-interests">{{ delimit (first 2 .) " · " }}</p>{{ end }}
+              {{ partial "lab/plinks.html" . }}
+            </div>
+          {{ end }}
+          </div>
+        {{ end }}
+      </div>
+      {{ end }}
+    {{ end }}
+  </div>
+</section>
+
+{{ with site.Data.alumni.alumni }}
+<section class="lab-section lab-section--wash" id="alumni">
+  <div class="lab-wrap">
+    <p class="lab-label">Alumni</p>
+    <h2 class="lab-h2" style="margin-bottom:24px">Where our members went next</h2>
+    <div class="lab-table-wrap">
+      <table class="lab-table">
+        <thead><tr><th>Name</th><th>Former role / programme</th><th>Years</th><th>Next destination</th></tr></thead>
+        <tbody>
+          {{ range . }}<tr><td><strong>{{ .name }}</strong>{{ with .name_zh }} {{ . }}{{ end }}</td><td>{{ .role }}</td><td>{{ .years }}</td><td>{{ .next }}</td></tr>{{ end }}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{{ end }}
+
+{{ partial "lab/next.html" . }}
+{{- end -}}

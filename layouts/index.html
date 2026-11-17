@@ -1,0 +1,137 @@
+{{- define "main" -}}
+{{ $lab := site.Data.lab }}
+{{ $h := .Params.hero }}
+
+{{/* ── Hero ─────────────────────────────────────────────── */}}
+<section class="lab-hero">
+  <div class="lab-wrap">
+    <div>
+      <p class="lab-eyebrow">{{ $h.eyebrow | default (delimit (slice $lab.name ($lab.institution | default $lab.department)) " · ") }}</p>
+      <h1>{{ $h.title | markdownify }}</h1>
+      <p class="lab-lead">{{ $h.lead | markdownify }}</p>
+      <div class="lab-btns">
+        {{ range $i, $b := $h.buttons }}<a class="lab-btn {{ if $i }}lab-btn--outline-light{{ else }}lab-btn--light{{ end }}" href="{{ $b.url | relURL }}">{{ $b.text }}</a>{{ end }}
+      </div>
+    </div>
+    <div class="lab-hero-art" aria-hidden="true">
+      {{/* Bessel-beam cross-section: bright core, rings fading as 1/r */}}
+      <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="labcore" cx="50%" cy="50%" r="50%">
+            <stop offset="0" stop-color="#ffffff"/><stop offset="0.35" stop-color="#6fd3ff"/><stop offset="1" stop-color="#6fd3ff" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="labhalo" cx="50%" cy="50%" r="50%">
+            <stop offset="0" stop-color="#2f7fe0" stop-opacity="0.45"/><stop offset="1" stop-color="#2f7fe0" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <circle cx="200" cy="200" r="198" fill="url(#labhalo)"/>
+        {{ range $i := seq 1 11 }}
+        <circle cx="200" cy="200" r="{{ add 14 (mul $i 16) }}" fill="none" stroke="#6fd3ff" stroke-width="{{ if lt $i 4 }}5{{ else }}4{{ end }}" stroke-opacity="{{ div 0.85 (add (float $i) 0.4) | lang.FormatNumber 3 }}"/>
+        {{ end }}
+        <circle cx="200" cy="200" r="20" fill="url(#labcore)"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+{{/* ── Research directions ──────────────────────────────── */}}
+{{ $research := site.GetPage "/research" }}
+{{ with $research }}
+<section class="lab-section">
+  <div class="lab-wrap">
+    <div class="lab-section-head">
+      <div>
+        <p class="lab-label"><span class="n">01</span> · Research</p>
+        <h2 class="lab-h2">{{ $.Params.research_title | default "One optical toolbox, several directions" }}</h2>
+      </div>
+      <a class="lab-more" href="{{ .RelPermalink }}">All research →</a>
+    </div>
+    {{ $dirs := .RegularPages.ByWeight }}
+    <div class="lab-grid lab-grid--{{ if eq (len $dirs) 3 }}3{{ else if gt (len $dirs) 3 }}4{{ else }}2{{ end }}">
+      {{ range $i, $d := $dirs }}
+      <a class="lab-card" href="{{ $d.RelPermalink }}">
+        <div class="lab-card-n">{{ printf "%02d" (add $i 1) }}</div>
+        <h3 class="lab-h3">{{ $d.Title }}</h3>
+        <p>{{ $d.Params.summary }}</p>
+        <span class="lab-card-go">Explore →</span>
+      </a>
+      {{ end }}
+    </div>
+  </div>
+</section>
+{{ end }}
+
+{{/* ── Selected work ────────────────────────────────────── */}}
+{{ $pubs := where (where site.RegularPages "Section" "publication") "Params.featured" true }}
+{{ if $pubs }}
+<section class="lab-section lab-section--wash">
+  <div class="lab-wrap">
+    <div class="lab-section-head">
+      <div>
+        <p class="lab-label"><span class="n">02</span> · Selected work</p>
+        <h2 class="lab-h2">{{ .Params.work_title | default "Recent and representative papers" }}</h2>
+      </div>
+      <a class="lab-more" href="{{ "publication/" | relURL }}">All publications →</a>
+    </div>
+    {{ range first (.Params.work_count | default 4) $pubs.ByDate.Reverse }}
+      {{ partial "lab/pub_item.html" (dict "page" . "thumb" true) }}
+    {{ end }}
+  </div>
+</section>
+{{ end }}
+
+{{/* ── People ───────────────────────────────────────────── */}}
+{{ with .Params.people }}
+<section class="lab-section">
+  <div class="lab-wrap">
+    <p class="lab-label"><span class="n">03</span> · People and culture</p>
+    <div class="lab-grid lab-grid--2" style="align-items:center">
+      <div>
+        <h2 class="lab-h2">{{ .title }}</h2>
+        <p class="lab-lead">{{ .text | markdownify }}</p>
+        <div class="lab-btns">
+          <a class="lab-btn" href="{{ "people/" | relURL }}">Meet the team</a>
+          <a class="lab-btn lab-btn--ghost" href="{{ "culture/" | relURL }}">How we work</a>
+        </div>
+      </div>
+      {{ with resources.Get (printf "media/%s" (.image | default "group.jpg")) }}
+        {{ $g := .Resize "1100x" }}
+        <figure style="margin:0"><img src="{{ $g.RelPermalink }}" alt="{{ $.Params.people.image_caption }}" style="width:100%;border-radius:10px" loading="lazy">{{ with $.Params.people.image_caption }}<figcaption class="lab-muted" style="font-size:.85rem;margin-top:8px">{{ . }}</figcaption>{{ end }}</figure>
+      {{ end }}
+    </div>
+  </div>
+</section>
+{{ end }}
+
+{{/* ── Latest news ──────────────────────────────────────── */}}
+{{ $news := where site.RegularPages "Section" "post" }}
+{{ if $news }}
+<section class="lab-section lab-section--wash">
+  <div class="lab-wrap">
+    <div class="lab-section-head">
+      <div>
+        <p class="lab-label"><span class="n">04</span> · Latest news</p>
+        <h2 class="lab-h2">From the lab</h2>
+      </div>
+      <a class="lab-more" href="{{ "post/" | relURL }}">All news →</a>
+    </div>
+    {{ range first 3 $news.ByDate.Reverse }}{{ partial "lab/news_item.html" . }}{{ end }}
+  </div>
+</section>
+{{ end }}
+
+{{/* ── Work with us ─────────────────────────────────────── */}}
+{{ with .Params.join }}
+<section class="lab-cta">
+  <div class="lab-wrap">
+    <p class="lab-label"><span class="n">05</span> · Work with us</p>
+    <h2 class="lab-h2">{{ .title }}</h2>
+    <p>{{ .text | markdownify }}</p>
+    <div class="lab-btns">
+      <a class="lab-btn lab-btn--light" href="{{ "contact/" | relURL }}">Join / Collaborate</a>
+      <a class="lab-btn lab-btn--outline-light" href="{{ "research/" | relURL }}">See what we work on</a>
+    </div>
+  </div>
+</section>
+{{ end }}
+{{- end -}}

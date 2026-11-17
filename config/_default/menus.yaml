@@ -1,0 +1,26 @@
+# Navigation bar. `weight` sets the order.
+main:
+  - name: Research
+    url: research/
+    weight: 10
+  - name: People
+    url: people/
+    weight: 20
+  - name: News
+    url: post/
+    weight: 30
+  - name: Gallery
+    url: gallery/
+    weight: 40
+  - name: Publications
+    url: publication/
+    weight: 50
+  - name: Resources
+    url: resources/
+    weight: 60
+  - name: Culture
+    url: culture/
+    weight: 70
+  - name: Join / Collaborate
+    url: contact/
+    weight: 80

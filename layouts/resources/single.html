@@ -1,0 +1,28 @@
+{{- define "main" -}}
+{{ partial "lab/pagehead.html" . }}
+{{ range $i, $s := .Params.sections }}
+<section class="lab-section{{ if modBool $i 2 | not }} lab-section--wash{{ end }}" id="{{ $s.id }}">
+  <div class="lab-wrap">
+    <p class="lab-label"><span class="n">{{ printf "%02d" (add $i 1) }}</span> · {{ $s.label | default $s.title }}</p>
+    <h2 class="lab-h2">{{ $s.title }}</h2>
+    {{ with $s.text }}<p class="lab-lead" style="margin-bottom:26px">{{ . | markdownify }}</p>{{ end }}
+    {{ if $s.items }}
+    <div class="lab-grid lab-grid--{{ $s.columns | default 2 }}">
+      {{ range $s.items }}
+      <div class="lab-card lab-card--media">
+        {{ with .image }}{{ with $.Resources.GetMatch . }}{{ $t := .Fill "720x450 TopLeft" }}<img class="lab-card-img" src="{{ $t.RelPermalink }}" alt="" loading="lazy">{{ end }}{{ end }}
+        <h3 class="lab-h3">{{ .title }}{{ if .draft }} <span class="lab-draft">Placeholder</span>{{ end }}</h3>
+        {{ with .subtitle }}<p style="font-weight:600;color:var(--lab-text);margin-bottom:6px">{{ . }}</p>{{ end }}
+        <p>{{ .text | markdownify }}</p>
+        {{ with .links }}<div class="lab-links">{{ range . }}<a href="{{ if hasPrefix .url "http" }}{{ .url }}{{ else }}{{ .url | relURL }}{{ end }}"{{ if or (hasPrefix .url "http") (hasPrefix .url "demos/") }} target="_blank" rel="noopener"{{ end }}>{{ .name }}</a>{{ end }}</div>{{ end }}
+      </div>
+      {{ end }}
+    </div>
+    {{ else }}
+    <p class="lab-muted">Coming soon.</p>
+    {{ end }}
+  </div>
+</section>
+{{ end }}
+{{ partial "lab/next.html" . }}
+{{- end -}}

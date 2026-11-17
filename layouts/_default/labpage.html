@@ -1,0 +1,10 @@
+{{- define "main" -}}
+{{/* Generic text page: page head + numbered sections from Markdown `##` headings. Use with `layout: labpage`. */}}
+{{ partial "lab/pagehead.html" . }}
+<section class="lab-section">
+  <div class="lab-wrap lab-narrow">
+    <div class="lab-prose">{{ .Content }}</div>
+  </div>
+</section>
+{{ partial "lab/next.html" . }}
+{{- end -}}

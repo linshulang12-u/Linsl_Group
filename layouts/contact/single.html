@@ -1,0 +1,42 @@
+{{- define "main" -}}
+{{ $lab := site.Data.lab }}
+{{ partial "lab/pagehead.html" . }}
+
+<section class="lab-section" id="ways">
+  <div class="lab-wrap">
+    <p class="lab-label">Find a way to work together</p>
+    <h2 class="lab-h2" style="margin-bottom:34px">{{ .Params.ways_title | default "Who we would like to hear from" }}</h2>
+    {{ range $i, $w := .Params.ways }}
+    <article class="lab-way" id="{{ $w.id }}">
+      <div class="lab-way-n">{{ printf "%02d" (add $i 1) }}</div>
+      <div>
+        <h3 class="lab-h3">{{ $w.title }}</h3>
+        <p>{{ $w.text | markdownify }}</p>
+        {{ with $w.bring }}<h4>What you can bring</h4><ul>{{ range . }}<li>{{ . | markdownify }}</li>{{ end }}</ul>{{ end }}
+        {{ with $w.first_email }}<h4>In your first email</h4><ul>{{ range . }}<li>{{ . | markdownify }}</li>{{ end }}</ul>{{ end }}
+        {{ if and $lab.email $w.subject }}<a class="lab-btn lab-btn--ghost" style="margin-top:6px" href="{{ printf "mailto:%s?%s" $lab.email (querify "subject" $w.subject | replaceRE `\+` "%20") | safeURL }}">Email: “{{ $w.subject }}”</a>{{ else }}{{ with $w.subject }}<p class="lab-muted" style="font-size:.9rem">Suggested subject line: “{{ . }}”</p>{{ end }}{{ end }}
+      </div>
+    </article>
+    {{ end }}
+  </div>
+</section>
+
+<section class="lab-section lab-section--wash" id="contact">
+  <div class="lab-wrap">
+    <p class="lab-label">Primary contact</p>
+    <div class="lab-contact-card">
+      <dl>
+        <dt>Contact</dt><dd><strong>{{ $lab.pi }}</strong>{{ with $lab.pi_title }}, {{ . }}{{ end }}</dd>
+        <dt>Lab</dt><dd>{{ $lab.full_name | default $lab.name }}{{ with $lab.name_zh }} · {{ . }}{{ end }}</dd>
+        <dt>Affiliation</dt><dd>{{ $lab.department }}{{ with $lab.institution }}, {{ . }}{{ end }}</dd>
+        {{ with $lab.email }}<dt>Email</dt><dd><a href="mailto:{{ . }}">{{ . }}</a></dd>{{ else }}<dt>Email</dt><dd><span class="lab-draft">To be added</span></dd>{{ end }}
+        {{ with $lab.phone }}<dt>Phone</dt><dd>{{ . }}</dd>{{ end }}
+        {{ $addr := slice }}{{ range $lab.address }}{{ if . }}{{ $addr = $addr | append . }}{{ end }}{{ end }}
+        {{ if $addr }}<dt>Address</dt><dd>{{ delimit $addr "<br>" | safeHTML }}</dd>{{ else }}<dt>Address</dt><dd><span class="lab-draft">To be added</span></dd>{{ end }}
+      </dl>
+    </div>
+  </div>
+</section>
+
+{{ partial "lab/next.html" . }}
+{{- end -}}

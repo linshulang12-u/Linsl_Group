@@ -1,0 +1,13 @@
+{{/* Small link row for a publication. */}}
+{{- $p := . -}}
+<div class="lab-links">
+  <a href="{{ $p.RelPermalink }}">Details</a>
+  {{ with $p.Params.doi }}<a href="https://doi.org/{{ . }}" target="_blank" rel="noopener">DOI</a>{{ end }}
+  {{ $pdf := $p.Resources.GetMatch "*.pdf" }}
+  {{ with $pdf }}<a href="{{ .RelPermalink }}" target="_blank" rel="noopener">PDF</a>{{ else }}{{ with $p.Params.url_pdf }}<a href="{{ . }}" target="_blank" rel="noopener">PDF</a>{{ end }}{{ end }}
+  {{ with $p.Params.url_code }}<a href="{{ . }}" target="_blank" rel="noopener">Code</a>{{ end }}
+  {{ with $p.Params.url_dataset }}<a href="{{ . }}" target="_blank" rel="noopener">Data</a>{{ end }}
+  {{ with $p.Params.url_project }}<a href="{{ . }}" target="_blank" rel="noopener">Project</a>{{ end }}
+  {{ range $p.Params.links }}<a href="{{ if hasPrefix .url "http" }}{{ .url }}{{ else }}{{ .url | relURL }}{{ end }}" target="_blank" rel="noopener">{{ .name }}</a>{{ end }}
+  {{ with $p.Resources.GetMatch "cite.bib" }}<a href="#" class="js-cite-modal" data-filename="{{ .RelPermalink }}">Cite</a><a href="{{ .RelPermalink }}" download>BibTeX</a>{{ end }}
+</div>
